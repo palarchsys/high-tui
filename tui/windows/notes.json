@@ -1,0 +1,59 @@
+{
+  "id": "notes",
+  "tag": "window",
+  "title": "Notes",
+  "rows": [
+    {
+      "id": "entete-notes",
+      "tag": "header",
+      "lines": 1,
+      "columns": [
+        { "id": "titre-notes", "tag": "header", "fr": 1, "text": "Notes" }
+      ]
+    },
+    {
+      "id": "liste-notes",
+      "tag": "main",
+      "lines": 3,
+      "columns": [
+        {
+          "id": "nav-notes",
+          "tag": "nav",
+          "fr": 1,
+          "title": "Notes",
+          "items": [
+            {
+              "id": "item-brouillon",
+              "title": "Brouillon",
+              "action": "load",
+              "target": "corps",
+              "file": "samples/brouillon.txt"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "page-notes",
+      "tag": "main",
+      "lines": 4,
+      "columns": [
+        {
+          "id": "corps",
+          "tag": "textarea",
+          "fr": 1,
+          "file": "samples/brouillon.txt",
+          "readonly": true
+        }
+      ]
+    },
+    {
+      "id": "barre-notes",
+      "tag": "status",
+      "lines": 1,
+      "columns": [
+        { "id": "statut-notes", "tag": "status", "fr": 1 }
+      ]
+    }
+  ]
+}
