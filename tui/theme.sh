@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Dark palette, widths, rounded borders, Gum helpers.
+# Dark palette, widths, rounded borders.
+# The only gum style, gum table, and gum input wrappers.
 # Shellcheck: this file is sourced.
 
 C_BG="#0d1117"
@@ -57,14 +58,6 @@ style_status() {
     --padding "0 1" \
     --width "$W_HEADER" \
     "$1"
-}
-
-join_horizontal() {
-  gum join --horizontal "$@"
-}
-
-join_vertical() {
-  gum join --vertical "$@"
 }
 
 table_print() {
