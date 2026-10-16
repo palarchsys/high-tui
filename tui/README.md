@@ -12,6 +12,8 @@ bash tui/demo.sh
 
 Si `COLUMNS` est inférieur à 80, un cadre affiche « Terminal étroit », puis l'écran habituel.
 
+Chaque zone garde toujours la même taille. Un texte trop long est coupé, le cadre ne bouge pas.
+
 ## Fichiers
 
 - `theme.sh` — palette, largeurs, et les seules aides `gum style`, `gum table`, `gum input`

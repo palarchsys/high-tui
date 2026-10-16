@@ -1,6 +1,15 @@
 #!/usr/bin/env bash
 # Horizontal line paste, vertical stack, in-place paint. No gum.
+# Every painted line ends with erase-to-end.
 # Shellcheck: this file is sourced.
+
+emit_line() {
+  if [[ ${1-} == *$'\e[K' ]]; then
+    printf '%s' "$1"
+  else
+    printf '%s\e[K' "$1"
+  fi
+}
 
 split_lines() {
   local data=${1-}
@@ -43,7 +52,7 @@ paste_horizontal() {
       printf '\n'
     fi
     first=0
-    printf '%s' "$out"
+    emit_line "$out"
   done
 }
 
@@ -58,17 +67,27 @@ stack_vertical() {
         printf '\n'
       fi
       first=0
-      printf '%s' "$line"
+      emit_line "$line"
     done
   done
 }
 
 paint_inplace() {
   local screen=$1
+  local -a lines=()
+  local line painted="" sep=""
+  split_lines "$screen" lines
+  for line in "${lines[@]}"; do
+    if [[ $line != *$'\e[K' ]]; then
+      line+=$'\e[K'
+    fi
+    painted+="${sep}${line}"
+    sep=$'\n'
+  done
   if [[ -t 1 && ${DRAW_ONCE:-} != 1 ]]; then
-    printf '\e[?2026h\e[H%s\e[0J\e[?2026l\n' "$screen"
+    printf '\e[?2026h\e[H%s\e[0J\e[?2026l\n' "$painted"
   else
-    printf '%s\n' "$screen"
+    printf '%s\n' "$painted"
   fi
 }
 

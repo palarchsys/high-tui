@@ -3,6 +3,9 @@
 # Shellcheck: this file is sourced.
 
 declare -gA BLOCK=()
+declare -gA ZONE_REF=()
+declare -gA ZONE_W=()
+declare -gA ZONE_H=()
 STEADY_STATUS=(Prêt Menu Ouvrir Retour Échap)
 STATUS_TEMPLATE_TEXT=""
 STATUS_TEMPLATE_BLOCK=""
@@ -22,6 +25,194 @@ status_key() {
   printf 'status:%s' "$1"
 }
 
+visible_cols() {
+  local s=$1
+  local out="" ch i n=${#s} in_csi=0
+  for ((i = 0; i < n; i++)); do
+    ch=${s:i:1}
+    if [[ $ch == $'\e' ]]; then
+      in_csi=1
+      continue
+    fi
+    if (( in_csi )); then
+      if [[ $ch =~ [[:alpha:]] ]]; then
+        in_csi=0
+      fi
+      continue
+    fi
+    out+=$ch
+  done
+  printf '%s' "${#out}"
+}
+
+last_visible_index() {
+  local s=$1
+  local i n=${#s} ch in_csi=0 last=-1
+  for ((i = 0; i < n; i++)); do
+    ch=${s:i:1}
+    if [[ $ch == $'\e' ]]; then
+      in_csi=1
+      continue
+    fi
+    if (( in_csi )); then
+      if [[ $ch =~ [[:alpha:]] ]]; then
+        in_csi=0
+      fi
+      continue
+    fi
+    last=$i
+  done
+  printf '%s' "$last"
+}
+
+drop_visible() {
+  local prefix=$1
+  local drop=$2
+  local i n=${#prefix} ch in_csi=0
+  local -a chars=() visible_idx=()
+  for ((i = 0; i < n; i++)); do
+    chars+=("${prefix:i:1}")
+  done
+  for ((i = 0; i < n; i++)); do
+    ch=${chars[$i]}
+    if [[ $ch == $'\e' ]]; then
+      in_csi=1
+      continue
+    fi
+    if (( in_csi )); then
+      if [[ $ch =~ [[:alpha:]] ]]; then
+        in_csi=0
+      fi
+      continue
+    fi
+    visible_idx+=("$i")
+  done
+  local remain=$drop vi idx
+  for ((vi = ${#visible_idx[@]} - 1; vi >= 0 && remain > 0; vi--)); do
+    idx=${visible_idx[$vi]}
+    if [[ ${chars[$idx]} == " " ]]; then
+      chars[idx]=$'\x01'
+      remain=$((remain - 1))
+    fi
+  done
+  for ((vi = ${#visible_idx[@]} - 1; vi >= 0 && remain > 0; vi--)); do
+    idx=${visible_idx[$vi]}
+    if [[ ${chars[idx]} != $'\x01' ]]; then
+      chars[idx]=$'\x01'
+      remain=$((remain - 1))
+    fi
+  done
+  local out=""
+  for ((i = 0; i < n; i++)); do
+    if [[ ${chars[$i]} != $'\x01' ]]; then
+      out+=${chars[$i]}
+    fi
+  done
+  printf '%s' "$out"
+}
+
+# Spaces go in before the right border, and extra rows before the bottom border.
+fit_width() {
+  local line=$1
+  local want=$2
+  local have idx pad spaces prefix suffix
+  have=$(visible_cols "$line")
+  if (( have == want || want <= 0 )); then
+    printf '%s' "$line"
+    return 0
+  fi
+  idx=$(last_visible_index "$line")
+  if (( idx < 0 )); then
+    clip_pad "$line" "$want"
+    return 0
+  fi
+  if (( have < want )); then
+    pad=$((want - have))
+    printf -v spaces '%*s' "$pad" ""
+    printf '%s' "${line:0:idx}${spaces}${line:idx}"
+    return 0
+  fi
+  prefix=${line:0:idx}
+  suffix=${line:idx}
+  prefix=$(drop_visible "$prefix" $((have - want)))
+  printf '%s' "${prefix}${suffix}"
+}
+
+zone_set() {
+  local role=$1
+  local block=$2
+  local -a lines=()
+  ZONE_REF[$role]=$block
+  split_lines "$block" lines
+  ZONE_H[$role]=${#lines[@]}
+  if (( ${#lines[@]} > 0 )); then
+    ZONE_W[$role]=$(visible_cols "${lines[0]}")
+  else
+    ZONE_W[$role]=0
+  fi
+}
+
+init_zones() {
+  zone_set column "$(style_panel 0 " ")"
+  zone_set banner "$(style_banner " ")"
+  zone_set status "$(style_status " ")"
+  zone_set detail "$(table_print </dev/null)"
+}
+
+lock_zone() {
+  local role=$1
+  local block=$2
+  local -a lines=() ref=() kept=()
+  local want_h=${ZONE_H[$role]}
+  local want_w=${ZONE_W[$role]}
+  local i w h same=1 line pad_line out="" sep=""
+  split_lines "$block" lines
+  h=${#lines[@]}
+  if (( h != want_h )); then
+    same=0
+  else
+    for line in "${lines[@]}"; do
+      w=$(visible_cols "$line")
+      if (( w != want_w )); then
+        same=0
+        break
+      fi
+    done
+  fi
+  if (( same == 1 )); then
+    printf '%s' "$block"
+    return 0
+  fi
+  if (( h > want_h )); then
+    for ((i = 0; i < want_h - 1; i++)); do
+      kept+=("${lines[$i]}")
+    done
+    kept+=("${lines[$((h - 1))]}")
+    lines=("${kept[@]}")
+  elif (( h < want_h )); then
+    split_lines "${ZONE_REF[$role]}" ref
+    pad_line=${ref[$(( ${#ref[@]} - 2 ))]}
+    for ((i = 0; i < h - 1; i++)); do
+      kept+=("${lines[$i]}")
+    done
+    while (( ${#kept[@]} + 1 < want_h )); do
+      kept+=("$pad_line")
+    done
+    if (( h > 0 )); then
+      kept+=("${lines[$((h - 1))]}")
+    fi
+    lines=("${kept[@]}")
+  fi
+  for i in "${!lines[@]}"; do
+    lines[i]=$(fit_width "${lines[$i]}" "$want_w")
+  done
+  for line in "${lines[@]}"; do
+    out+="${sep}${line}"
+    sep=$'\n'
+  done
+  printf '%s' "$out"
+}
+
 render_column() {
   local title=$1
   local selected=$2
@@ -31,7 +222,7 @@ render_column() {
   text=$(column_text "$title" "$selected" "$@")
   key=$(column_key "$focused" "$text")
   if [[ -z ${BLOCK[$key]+x} ]]; then
-    BLOCK[$key]=$(style_panel "$focused" "$text")
+    BLOCK[$key]=$(lock_zone column "$(style_panel "$focused" "$text")")
   fi
 }
 
@@ -51,7 +242,7 @@ refresh_detail() {
   local fic=$2
   local key
   key=$(detail_key "$rub" "$fic")
-  BLOCK[$key]=$(detail_tsv "$rub" "$fic" | table_print)
+  BLOCK[$key]=$(lock_zone detail "$(detail_tsv "$rub" "$fic" | table_print)")
 }
 
 derive_status() {
@@ -112,7 +303,7 @@ cache_status() {
   if [[ -n ${BLOCK[$key]+x} ]]; then
     return 0
   fi
-  BLOCK[$key]=$(derive_status "$text")
+  BLOCK[$key]=$(lock_zone status "$(derive_status "$text")")
 }
 
 warm_list() {
@@ -189,7 +380,7 @@ warm_status() {
   rebuild
   text=$(status_text "${RUBS[$ri]}" "${FICS[$fi]}" "${CHAMPS[$ci]}")
   STATUS_TEMPLATE_TEXT=$text
-  STATUS_TEMPLATE_BLOCK=$(style_status "$text")
+  STATUS_TEMPLATE_BLOCK=$(lock_zone status "$(style_status "$text")")
   BLOCK[$(status_key "$text")]=$STATUS_TEMPLATE_BLOCK
 
   rubs=("${RUBS[@]}")
@@ -242,8 +433,9 @@ warm_status() {
 
 warm_blocks() {
   rebuild
-  BLOCK[header]=$(style_banner "high-tui")
-  BLOCK[narrow]=$(style_banner "Terminal étroit")
+  init_zones
+  BLOCK[header]=$(lock_zone banner "$(style_banner "high-tui")")
+  BLOCK[narrow]=$(lock_zone banner "$(style_banner "Terminal étroit")")
   warm_columns
   warm_details
   warm_status

@@ -102,18 +102,26 @@ column_text() {
   local selected=$2
   shift 2
   local -a items=("$@")
-  local text=$title
-  local i n
-  for i in "${!items[@]}"; do
-    if [[ $i -eq $selected ]]; then
-      text+=$'\n'"› ${items[$i]}"
-    else
-      text+=$'\n'"  ${items[$i]}"
+  local text line i n start=0 count=${#items[@]} idx
+  if (( count > ROW_SLOTS )); then
+    if (( selected >= ROW_SLOTS )); then
+      start=$((selected - ROW_SLOTS + 1))
     fi
+    count=$ROW_SLOTS
+  fi
+  text=$(clip_pad "$title" "$INNER_COL")
+  for ((i = 0; i < count; i++)); do
+    idx=$((start + i))
+    if (( idx == selected )); then
+      line="› ${items[$idx]}"
+    else
+      line="  ${items[$idx]}"
+    fi
+    text+=$'\n'"$(clip_pad "$line" "$INNER_COL")"
   done
-  n=${#items[@]}
-  while [[ $n -lt $ROW_SLOTS ]]; do
-    text+=$'\n'" "
+  n=$count
+  while (( n < ROW_SLOTS )); do
+    text+=$'\n'"$(clip_pad " " "$INNER_COL")"
     n=$((n + 1))
   done
   printf '%s' "$text"
@@ -122,11 +130,23 @@ column_text() {
 detail_tsv() {
   local rub=$1
   local fic=$2
-  local i
+  local i n=0
   for i in "${!RUB[@]}"; do
     if [[ ${RUB[$i]} == "$rub" && ${FIC[$i]} == "$fic" ]]; then
-      printf '%s\t%s\n' "${CHAMP[$i]}" "${VAL[$i]}"
+      if (( n >= ROW_SLOTS )); then
+        break
+      fi
+      printf '%s\t%s\n' \
+        "$(clip_pad "${CHAMP[$i]}" "$W_CHAMP")" \
+        "$(clip_pad "${VAL[$i]}" "$W_VALEUR")"
+      n=$((n + 1))
     fi
+  done
+  while (( n < ROW_SLOTS )); do
+    printf '%s\t%s\n' \
+      "$(clip_pad "" "$W_CHAMP")" \
+      "$(clip_pad "" "$W_VALEUR")"
+    n=$((n + 1))
   done
 }
 
@@ -135,17 +155,22 @@ status_text() {
   local fic=$2
   local champ=$3
   local where=${FOCUS_NAME[$focus]}
-  local extra note
+  local extra note tail room
   if [[ $focus -eq 3 ]]; then
     extra=${MENU[$mi]}
   else
     extra="${rub} / ${fic} / ${champ}"
   fi
   note=$status_msg
-  if (( ${#note} > 40 )); then
-    note=${note:0:39}
+  tail=' · ↑↓ ←→ entrée q'
+  room=$((INNER_HEADER - ${#where} - 3 - ${#extra} - 3 - ${#tail}))
+  if (( room < 1 )); then
+    room=1
   fi
-  printf '%s · %s · %s · ↑↓ ←→ entrée q' "$where" "$extra" "$note"
+  if (( ${#note} > room )); then
+    note=${note:0:room}
+  fi
+  clip_pad "${where} · ${extra} · ${note}${tail}" "$INNER_HEADER"
 }
 
 move_up() {
