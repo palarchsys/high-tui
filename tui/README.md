@@ -14,9 +14,12 @@ Si `COLUMNS` est inférieur à 80, un cadre affiche « Terminal étroit », puis
 
 ## Fichiers
 
-- `theme.sh` — palette, largeurs, bordures arrondies, aides Gum
+- `theme.sh` — palette, largeurs, et les seules aides `gum style`, `gum table`, `gum input`
+- `model.sh` — lecture du tsv, curseur, texte des listes, détail, statut, édition en mémoire
+- `blocks.sh` — cache des blocs déjà dessinés par Gum
+- `screen.sh` — assemblage et peinture sur place, sans Gum
 - `data.tsv` — colonnes `rubrique`, `fiche`, `champ`, `valeur`
-- `demo.sh` — écran et clavier
+- `demo.sh` — boucle clavier
 
 ## Un seul cadre
 
