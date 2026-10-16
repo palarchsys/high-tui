@@ -1,0 +1,10 @@
+rubrique	fiche	champ	valeur
+Réseau	Passage	Nom	Passage
+Réseau	Passage	Hôte	127.0.0.1
+Réseau	Passage	Port	8080
+Réseau	Archive	Nom	Archive
+Réseau	Archive	Hôte	10.1.0.8
+Réseau	Archive	Note	Copie locale
+Notes	Brouillon	Titre	Brouillon
+Notes	Brouillon	Corps	Texte en cours
+Notes	Brouillon	État	Brouillon
