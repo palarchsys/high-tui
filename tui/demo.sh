@@ -153,9 +153,6 @@ draw() {
   local rub fic champ text on narrow
   local c0 c1 c2 c3 header cols detail status screen
   rebuild
-  if [[ -t 1 ]]; then
-    clear || true
-  fi
   rub=${RUBS[$ri]}
   fic=${FICS[$fi]}
   champ=${CHAMPS[$ci]}
@@ -193,7 +190,12 @@ draw() {
   else
     screen=$(join_vertical "$header" "$cols" "$detail" "$status")
   fi
-  printf '%s\n' "$screen"
+  # Live tty: cursor home, the finished frame, then erase below, in one synchronized update.
+  if [[ -t 1 && ${DRAW_ONCE:-} != 1 ]]; then
+    printf '\e[?2026h\e[H%s\e[0J\e[?2026l\n' "$screen"
+  else
+    printf '%s\n' "$screen"
+  fi
 }
 
 move_up() {
@@ -280,6 +282,9 @@ edit_champ() {
   idx=${CIDX[$ci]}
   name=${CHAMP[$idx]}
   old=${VAL[$idx]}
+  if [[ -t 1 ]]; then
+    printf '\e[?25h'
+  fi
   if value=$(input_value "$name" "$old"); then
     value=${value//$'\t'/ }
     value=${value//$'\r'/ }
@@ -290,7 +295,7 @@ edit_champ() {
     status_msg="Annulé"
   fi
   if [[ -t 1 ]]; then
-    clear || true
+    printf '\e[?25l'
   fi
 }
 
@@ -312,11 +317,20 @@ on_enter() {
   esac
 }
 
+restore_screen() {
+  printf '\e[?25h\e[?1049l'
+}
+
 load_data
 
 if [[ ${DRAW_ONCE:-} == 1 ]]; then
   draw
   exit 0
+fi
+
+if [[ -t 1 ]]; then
+  printf '\e[?1049h\e[?25l'
+  trap restore_screen EXIT
 fi
 
 while true; do
