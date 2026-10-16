@@ -1,0 +1,177 @@
+{
+  "id": "main",
+  "tag": "window",
+  "title": "high-tui",
+  "rows": [
+    {
+      "id": "entete",
+      "tag": "header",
+      "lines": 1,
+      "columns": [
+        { "id": "titre", "tag": "header", "fr": 1, "text": "high-tui" }
+      ]
+    },
+    {
+      "id": "listes",
+      "tag": "main",
+      "lines": 4,
+      "columns": [
+        {
+          "id": "nav-rubriques",
+          "tag": "nav",
+          "fr": 1,
+          "title": "Rubriques",
+          "items": [
+            {
+              "id": "item-reseau",
+              "title": "Réseau",
+              "action": "load",
+              "target": "valeur-hote",
+              "file": "samples/passage.env",
+              "name": "HOTE"
+            },
+            {
+              "id": "item-notes",
+              "title": "Notes",
+              "action": "window",
+              "href": "notes.json"
+            }
+          ]
+        },
+        {
+          "id": "nav-fiches",
+          "tag": "nav",
+          "fr": 1,
+          "title": "Fiches",
+          "items": [
+            {
+              "id": "item-passage",
+              "title": "Passage",
+              "action": "load",
+              "target": "valeur-hote",
+              "file": "samples/passage.env",
+              "name": "HOTE"
+            },
+            {
+              "id": "item-archive",
+              "title": "Archive",
+              "action": "load",
+              "target": "valeur-hote",
+              "file": "samples/passage.env",
+              "name": "PORT"
+            }
+          ]
+        },
+        {
+          "id": "nav-champs",
+          "tag": "nav",
+          "fr": 1,
+          "title": "Champs",
+          "items": [
+            {
+              "id": "item-nom",
+              "title": "Nom",
+              "action": "load",
+              "target": "valeur-hote",
+              "file": "samples/passage.env",
+              "name": "NOM"
+            },
+            {
+              "id": "item-hote",
+              "title": "Hôte",
+              "action": "load",
+              "target": "valeur-hote",
+              "file": "samples/passage.env",
+              "name": "HOTE"
+            },
+            {
+              "id": "item-port",
+              "title": "Port",
+              "action": "load",
+              "target": "valeur-hote",
+              "file": "samples/passage.env",
+              "name": "PORT"
+            }
+          ]
+        },
+        {
+          "id": "nav-menu",
+          "tag": "nav",
+          "fr": 1,
+          "title": "Menu",
+          "items": [
+            {
+              "id": "item-ouvrir",
+              "title": "Ouvrir",
+              "action": "load",
+              "target": "apercu",
+              "file": "samples/brouillon.txt"
+            },
+            {
+              "id": "item-modifier",
+              "title": "Modifier",
+              "action": "load",
+              "target": "valeur-hote",
+              "file": "samples/passage.env",
+              "name": "HOTE"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "edition",
+      "tag": "main",
+      "lines": 3,
+      "columns": [
+        {
+          "id": "valeur-hote",
+          "tag": "input",
+          "fr": 1,
+          "file": "samples/passage.env",
+          "name": "HOTE",
+          "save": "button"
+        },
+        {
+          "id": "apercu",
+          "tag": "textarea",
+          "fr": 2,
+          "file": "samples/passage.env",
+          "readonly": true
+        },
+        {
+          "id": "sortie",
+          "tag": "textarea",
+          "fr": 1,
+          "file": "samples/brouillon.txt",
+          "readonly": true
+        }
+      ]
+    },
+    {
+      "id": "actions",
+      "tag": "main",
+      "lines": 1,
+      "columns": [
+        { "id": "enregistrer", "tag": "button", "fr": 1, "action": "save", "text": "Enregistrer" },
+        { "id": "recharger", "tag": "button", "fr": 1, "action": "refresh", "text": "Recharger" },
+        {
+          "id": "essai",
+          "tag": "command",
+          "fr": 1,
+          "title": "Essai local",
+          "run": "echo ok",
+          "output": "sortie"
+        }
+      ]
+    },
+    {
+      "id": "barre",
+      "tag": "status",
+      "lines": 1,
+      "columns": [
+        { "id": "statut", "tag": "status", "fr": 1 }
+      ]
+    }
+  ]
+}

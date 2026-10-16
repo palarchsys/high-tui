@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd "$(dirname "$0")"
+python3 engine.py
 source theme.sh
 source model.sh
 source blocks.sh
 source screen.sh
 
-load_data
+load_layout
+init_values
 warm_blocks
 
 if [[ ${DRAW_ONCE:-} == 1 ]]; then
@@ -25,15 +27,15 @@ while true; do
   if [[ $key == $'\e' ]]; then
     read -rsn2 -t 0.05 rest || rest=
     case $rest in
-      '[A') move_up ;;
-      '[B') move_down ;;
-      '[C') move_right ;;
-      '[D') move_left ;;
-      '') on_escape ;;
+      '[A') move_vert -1 ;;
+      '[B') move_vert 1 ;;
+      '[C') move_focus 1 ;;
+      '[D') move_focus -1 ;;
+      '') nav_return ;;
     esac
   elif [[ $key == q ]]; then
     exit 0
   elif [[ -z $key || $key == $'\r' ]]; then
-    on_enter
+    activate
   fi
 done

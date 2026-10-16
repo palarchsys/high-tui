@@ -1,474 +1,295 @@
 #!/usr/bin/env bash
-# One associative cache. One column renderer. Warm every variant once.
+# Cached Gum blocks. A key reprints them.
 # Shellcheck: this file is sourced.
 
 declare -gA BLOCK=()
-declare -gA ZONE_REF=()
-declare -gA ZONE_W=()
-declare -gA ZONE_H=()
-STEADY_STATUS=(Prêt Menu Ouvrir Retour Échap)
-STATUS_TEMPLATE_TEXT=""
-STATUS_TEMPLATE_BLOCK=""
 
-column_key() {
-  local focused=$1
-  local text=$2
-  text=${text//$'\n'/$'\x1e'}
-  printf 'column:%s:%s' "$focused" "$text"
+zone_payload() {
+  local id=$1 tag
+  tag=${Z_TAG[${ZIX[$CUR|$id]}]}
+  case $tag in
+    nav) printf '%s' "${SEL[$CUR|$id]:-0}" ;;
+    input|textarea) printf '%s' "${VAL[$CUR|$id]//$'\n'/$'\x1e'}" ;;
+    status) printf '%s' "$status_msg" ;;
+    *) printf '%s%s' "${PROP[$CUR|$id|text]:-}" "${PROP[$CUR|$id|title]:-}" ;;
+  esac
 }
 
-detail_key() {
-  printf 'detail:%s:%s' "$1" "$2"
+logical_text() {
+  local id=$1 tag lines sel slots start i shown count pos
+  tag=${Z_TAG[${ZIX[$CUR|$id]}]}
+  lines=${Z_LINES[${ZIX[$CUR|$id]}]}
+  case $tag in
+    header|button) printf '%s' "${PROP[$CUR|$id|text]:-}" ;;
+    command) printf '%s' "${PROP[$CUR|$id|title]:-}" ;;
+    status) printf '%s' "$status_msg" ;;
+    input) printf '%s\n%s' "${PROP[$CUR|$id|name]}" "${VAL[$CUR|$id]:-}" ;;
+    textarea) printf '%s' "${VAL[$CUR|$id]:-}" ;;
+    nav)
+      sel=${SEL[$CUR|$id]:-0}
+      count=$(nav_count "$id")
+      slots=$((lines - 1))
+      if (( slots < 1 )); then slots=1; fi
+      start=0
+      if (( sel >= slots )); then start=$((sel - slots + 1)); fi
+      printf '%s' "${PROP[$CUR|$id|title]}"
+      shown=0
+      for ((i = start; i < count && shown < slots; i++)); do
+        pos=$(nav_item_at "$id" "$i")
+        if (( i == sel )); then
+          printf '\n› %s' "${N_TITLE[$pos]}"
+        else
+          printf '\n  %s' "${N_TITLE[$pos]}"
+        fi
+        shown=$((shown + 1))
+      done
+      ;;
+  esac
 }
 
-status_key() {
-  printf 'status:%s' "$1"
+compose() {
+  local id=$1
+  local idx=${ZIX[$CUR|$id]}
+  local lines=${Z_LINES[$idx]} text_w=${Z_TW[$idx]} content_h=${Z_CH[$idx]}
+  local content_w=$((Z_OW[$idx] - 2 * Z_BW[$idx]))
+  local pad_t=${Z_PT[$idx]} pad_b=${Z_PB[$idx]} pad_l=${Z_PL[$idx]} pad_r=${Z_PR[$idx]}
+  local lh=${Z_LH[$idx]}
+  local -a logical=() out=()
+  local raw line i n blank left right body joined="" sep=""
+  raw=$(logical_text "$id")
+  if [[ -n $raw ]]; then
+    while IFS= read -r line || [[ -n ${line:-} ]]; do
+      logical+=("$(clip_pad "$line" "$text_w")")
+    done <<< "$raw"
+  fi
+  while (( ${#logical[@]} < lines )); do
+    logical+=("$(clip_pad "" "$text_w")")
+  done
+  if (( ${#logical[@]} > lines )); then
+    logical=("${logical[@]:0:lines}")
+  fi
+  printf -v blank '%*s' "$content_w" ""
+  for ((i = 0; i < pad_t; i++)); do out+=("$blank"); done
+  for i in "${!logical[@]}"; do
+    printf -v left '%*s' "$pad_l" ""
+    printf -v right '%*s' "$pad_r" ""
+    body=${logical[$i]}
+    out+=("${left}${body}${right}")
+    if (( i + 1 < ${#logical[@]} )); then
+      for ((n = 1; n < lh; n++)); do out+=("$blank"); done
+    fi
+  done
+  for ((i = 0; i < pad_b; i++)); do out+=("$blank"); done
+  while (( ${#out[@]} < content_h )); do out+=("$blank"); done
+  if (( ${#out[@]} > content_h )); then
+    out=("${out[@]:0:content_h}")
+  fi
+  for line in "${out[@]}"; do
+    joined+="${sep}${line}"
+    sep=$'\n'
+  done
+  printf '%s' "$joined"
 }
 
-visible_cols() {
-  local s=$1
-  local out="" ch i n=${#s} in_csi=0
-  for ((i = 0; i < n; i++)); do
-    ch=${s:i:1}
-    if [[ $ch == $'\e' ]]; then
-      in_csi=1
-      continue
-    fi
-    if (( in_csi )); then
-      if [[ $ch =~ [[:alpha:]] ]]; then
-        in_csi=0
-      fi
-      continue
-    fi
-    out+=$ch
-  done
-  printf '%s' "${#out}"
-}
-
-last_visible_index() {
-  local s=$1
-  local i n=${#s} ch in_csi=0 last=-1
-  for ((i = 0; i < n; i++)); do
-    ch=${s:i:1}
-    if [[ $ch == $'\e' ]]; then
-      in_csi=1
-      continue
-    fi
-    if (( in_csi )); then
-      if [[ $ch =~ [[:alpha:]] ]]; then
-        in_csi=0
-      fi
-      continue
-    fi
-    last=$i
-  done
-  printf '%s' "$last"
-}
-
-drop_visible() {
-  local prefix=$1
-  local drop=$2
-  local i n=${#prefix} ch in_csi=0
-  local -a chars=() visible_idx=()
-  for ((i = 0; i < n; i++)); do
-    chars+=("${prefix:i:1}")
-  done
-  for ((i = 0; i < n; i++)); do
-    ch=${chars[$i]}
-    if [[ $ch == $'\e' ]]; then
-      in_csi=1
-      continue
-    fi
-    if (( in_csi )); then
-      if [[ $ch =~ [[:alpha:]] ]]; then
-        in_csi=0
-      fi
-      continue
-    fi
-    visible_idx+=("$i")
-  done
-  local remain=$drop vi idx
-  for ((vi = ${#visible_idx[@]} - 1; vi >= 0 && remain > 0; vi--)); do
-    idx=${visible_idx[$vi]}
-    if [[ ${chars[$idx]} == " " ]]; then
-      chars[idx]=$'\x01'
-      remain=$((remain - 1))
-    fi
-  done
-  for ((vi = ${#visible_idx[@]} - 1; vi >= 0 && remain > 0; vi--)); do
-    idx=${visible_idx[$vi]}
-    if [[ ${chars[idx]} != $'\x01' ]]; then
-      chars[idx]=$'\x01'
-      remain=$((remain - 1))
-    fi
-  done
-  local out=""
-  for ((i = 0; i < n; i++)); do
-    if [[ ${chars[$i]} != $'\x01' ]]; then
-      out+=${chars[$i]}
-    fi
-  done
-  printf '%s' "$out"
-}
-
-# Spaces go in before the right border, and extra rows before the bottom border.
-fit_width() {
-  local line=$1
-  local want=$2
-  local have idx pad spaces prefix suffix
-  have=$(visible_cols "$line")
-  if (( have == want || want <= 0 )); then
-    printf '%s' "$line"
+cache_put() {
+  local id=$1 focus=$2
+  local idx=${ZIX[$CUR|$id]}
+  local fg bg bc bold payload key text block cw
+  payload=$(zone_payload "$id")
+  key="$CUR|$id|$focus|$payload"
+  if [[ -n ${BLOCK[$key]+x} ]]; then
     return 0
   fi
-  idx=$(last_visible_index "$line")
-  if (( idx < 0 )); then
-    clip_pad "$line" "$want"
-    return 0
-  fi
-  if (( have < want )); then
-    pad=$((want - have))
-    printf -v spaces '%*s' "$pad" ""
-    printf '%s' "${line:0:idx}${spaces}${line:idx}"
-    return 0
-  fi
-  prefix=${line:0:idx}
-  suffix=${line:idx}
-  prefix=$(drop_visible "$prefix" $((have - want)))
-  printf '%s' "${prefix}${suffix}"
-}
-
-zone_set() {
-  local role=$1
-  local block=$2
-  local -a lines=()
-  ZONE_REF[$role]=$block
-  split_lines "$block" lines
-  ZONE_H[$role]=${#lines[@]}
-  if (( ${#lines[@]} > 0 )); then
-    ZONE_W[$role]=$(visible_cols "${lines[0]}")
+  if (( focus == 1 )); then
+    fg=${Z_FFG[$idx]}; bg=${Z_FBG[$idx]}; bc=${Z_FBC[$idx]}; bold=${Z_FBOLD[$idx]}
   else
-    ZONE_W[$role]=0
+    fg=${Z_FG[$idx]}; bg=${Z_BG[$idx]}; bc=${Z_BC[$idx]}; bold=${Z_BOLD[$idx]}
+  fi
+  text=$(compose "$id")
+  cw=$((Z_OW[$idx] - 2 * Z_BW[$idx]))
+  block=$(style_box "$fg" "$bg" "$bc" "${Z_BW[$idx]}" "$bold" "$cw" "$text")
+  block=${block%$'\n'}
+  BLOCK[$key]=$block
+}
+
+refresh_zone() {
+  local id=$1 tag
+  tag=${Z_TAG[${ZIX[$CUR|$id]}]}
+  cache_put "$id" 0
+  if [[ $tag == nav || $tag == input || $tag == button || $tag == command || ( $tag == textarea && ${PROP[$CUR|$id|readonly]} != 1 ) ]]; then
+    cache_put "$id" 1
   fi
 }
 
-init_zones() {
-  zone_set column "$(style_panel 0 " ")"
-  zone_set banner "$(style_banner " ")"
-  zone_set status "$(style_status " ")"
-  zone_set detail "$(table_print </dev/null)"
+zone_view() {
+  local id=$1 focus=0 tag payload key
+  tag=${Z_TAG[${ZIX[$CUR|$id]}]}
+  if [[ $(focused_id) == "$id" ]]; then
+    focus=1
+  fi
+  if [[ $tag == header || $tag == status || ( $tag == textarea && ${PROP[$CUR|$id|readonly]} == 1 ) ]]; then
+    focus=0
+  fi
+  payload=$(zone_payload "$id")
+  key="$CUR|$id|$focus|$payload"
+  if [[ -z ${BLOCK[$key]+x} ]]; then
+    cache_put "$id" "$focus"
+  fi
+  printf '%s' "${BLOCK[$key]}"
 }
 
-lock_zone() {
-  local role=$1
-  local block=$2
-  local -a lines=() ref=() kept=()
-  local want_h=${ZONE_H[$role]}
-  local want_w=${ZONE_W[$role]}
-  local i w h same=1 line pad_line out="" sep=""
-  split_lines "$block" lines
-  h=${#lines[@]}
-  if (( h != want_h )); then
-    same=0
-  else
-    for line in "${lines[@]}"; do
-      w=$(visible_cols "$line")
-      if (( w != want_w )); then
-        same=0
-        break
-      fi
-    done
-  fi
-  if (( same == 1 )); then
-    printf '%s' "$block"
-    return 0
-  fi
-  if (( h > want_h )); then
-    for ((i = 0; i < want_h - 1; i++)); do
-      kept+=("${lines[$i]}")
-    done
-    kept+=("${lines[$((h - 1))]}")
-    lines=("${kept[@]}")
-  elif (( h < want_h )); then
-    split_lines "${ZONE_REF[$role]}" ref
-    pad_line=${ref[$(( ${#ref[@]} - 2 ))]}
-    for ((i = 0; i < h - 1; i++)); do
-      kept+=("${lines[$i]}")
-    done
-    while (( ${#kept[@]} + 1 < want_h )); do
-      kept+=("$pad_line")
-    done
-    if (( h > 0 )); then
-      kept+=("${lines[$((h - 1))]}")
-    fi
-    lines=("${kept[@]}")
-  fi
-  for i in "${!lines[@]}"; do
-    lines[i]=$(fit_width "${lines[$i]}" "$want_w")
-  done
-  for line in "${lines[@]}"; do
-    out+="${sep}${line}"
+blank_block() {
+  local n=$1 w=$2 i s out="" sep=""
+  printf -v s '%*s' "$w" ""
+  for ((i = 0; i < n; i++)); do
+    out+="${sep}${s}"
     sep=$'\n'
   done
   printf '%s' "$out"
 }
 
-render_column() {
-  local title=$1
-  local selected=$2
-  local focused=$3
-  shift 3
-  local text key
-  text=$(column_text "$title" "$selected" "$@")
-  key=$(column_key "$focused" "$text")
-  if [[ -z ${BLOCK[$key]+x} ]]; then
-    BLOCK[$key]=$(lock_zone column "$(style_panel "$focused" "$text")")
-  fi
-}
-
-column_view() {
-  local title=$1
-  local selected=$2
-  local focused=$3
-  shift 3
-  local text key
-  text=$(column_text "$title" "$selected" "$@")
-  key=$(column_key "$focused" "$text")
-  printf '%s' "${BLOCK[$key]}"
-}
-
-refresh_detail() {
-  local rub=$1
-  local fic=$2
-  local key
-  key=$(detail_key "$rub" "$fic")
-  BLOCK[$key]=$(lock_zone detail "$(detail_tsv "$rub" "$fic" | table_print)")
-}
-
-derive_status() {
-  local new_text=$1
-  local -a lines=()
-  local mid before after target
-  local delta best_start best_len run_start run_len i c n new_len spaces
-  if [[ $new_text == "$STATUS_TEMPLATE_TEXT" ]]; then
-    printf '%s' "$STATUS_TEMPLATE_BLOCK"
-    return 0
-  fi
-  split_lines "$STATUS_TEMPLATE_BLOCK" lines
-  mid=${lines[1]}
-  delta=$((${#new_text} - ${#STATUS_TEMPLATE_TEXT}))
-  before=${mid%%"$STATUS_TEMPLATE_TEXT"*}
-  after=${mid#*"$STATUS_TEMPLATE_TEXT"}
-  target=$after
-  best_start=0
-  best_len=0
-  run_start=0
-  run_len=0
-  n=${#target}
-  for ((i = 0; i < n; i++)); do
-    c=${target:i:1}
-    if [[ $c == " " ]]; then
-      if (( run_len == 0 )); then
-        run_start=$i
-      fi
-      run_len=$((run_len + 1))
-      if (( run_len > best_len )); then
-        best_len=$run_len
-        best_start=$run_start
-      fi
-    else
-      run_len=0
-    fi
-  done
-  new_len=$((best_len - delta))
-  if (( best_len == 0 || new_len < 0 )); then
-    style_status "$new_text"
-    return 0
-  fi
-  printf -v spaces '%*s' "$new_len" ""
-  after="${target:0:best_start}${spaces}${target:best_start+best_len}"
-  lines[1]="${before}${new_text}${after}"
-  for i in "${!lines[@]}"; do
-    if (( i > 0 )); then
-      printf '\n'
-    fi
-    printf '%s' "${lines[$i]}"
-  done
-}
-
-cache_status() {
-  local text=$1
-  local key
-  key=$(status_key "$text")
-  if [[ -n ${BLOCK[$key]+x} ]]; then
-    return 0
-  fi
-  BLOCK[$key]=$(lock_zone status "$(derive_status "$text")")
-}
-
-warm_list() {
-  local title=$1
-  shift
-  local -a items=("$@")
-  local i on
-  for i in "${!items[@]}"; do
-    for on in 0 1; do
-      render_column "$title" "$i" "$on" "${items[@]}"
-    done
-  done
-}
-
-warm_columns() {
-  local save_ri=$ri save_fi=$fi save_ci=$ci
-  local r f
-  local -a rubs=() fics=() champs=()
-  rebuild
-  rubs=("${RUBS[@]}")
-  warm_list Rubriques "${rubs[@]}"
-  for r in "${!rubs[@]}"; do
-    ri=$r
-    fi=0
-    ci=0
-    rebuild
-    fics=("${FICS[@]}")
-    warm_list Fiches "${fics[@]}"
-    for f in "${!fics[@]}"; do
-      ri=$r
-      fi=$f
-      ci=0
-      rebuild
-      champs=("${CHAMPS[@]}")
-      warm_list Champs "${champs[@]}"
-    done
-  done
-  warm_list Menu "${MENU[@]}"
-  ri=$save_ri
-  fi=$save_fi
-  ci=$save_ci
-  rebuild
-}
-
-warm_details() {
-  local -A seen=()
-  local i rub fic mark
-  for i in "${!RUB[@]}"; do
-    rub=${RUB[$i]}
-    fic=${FIC[$i]}
-    mark=$'\t'"${rub}"$'\t'"${fic}"
-    if [[ -z ${seen[$mark]+x} ]]; then
-      seen[$mark]=1
-      refresh_detail "$rub" "$fic"
-    fi
-  done
-}
-
-warm_status() {
-  local save_ri=$ri save_fi=$fi save_ci=$ci save_mi=$mi
-  local save_focus=$focus save_msg=$status_msg
-  local -a messages=("${STEADY_STATUS[@]}" Annulé)
-  local -A seen=()
-  local -a rubs=() fics=() champs=()
-  local name text r f c m msg fic_n champ_n rub fic
-  # Edit outcomes stay in the cache, so a later key does not call gum.
-  for name in "${CHAMP[@]}"; do
-    if [[ -z ${seen[$name]+x} ]]; then
-      seen[$name]=1
-      messages+=("Modifié : ${name}")
-    fi
-  done
-
-  rebuild
-  text=$(status_text "${RUBS[$ri]}" "${FICS[$fi]}" "${CHAMPS[$ci]}")
-  STATUS_TEMPLATE_TEXT=$text
-  STATUS_TEMPLATE_BLOCK=$(lock_zone status "$(style_status "$text")")
-  BLOCK[$(status_key "$text")]=$STATUS_TEMPLATE_BLOCK
-
-  rubs=("${RUBS[@]}")
-  for r in "${!rubs[@]}"; do
-    ri=$r
-    fi=0
-    ci=0
-    rebuild
-    fic_n=${#FICS[@]}
-    for ((f = 0; f < fic_n; f++)); do
-      ri=$r
-      fi=$f
-      ci=0
-      rebuild
-      fics=("${FICS[@]}")
-      champs=("${CHAMPS[@]}")
-      champ_n=${#champs[@]}
-      rub=${RUBS[$ri]}
-      fic=${fics[$f]}
-      for ((c = 0; c < champ_n; c++)); do
-        for focus in 0 1 2; do
-          for msg in "${messages[@]}"; do
-            status_msg=$msg
-            text=$(status_text "$rub" "$fic" "${champs[$c]}")
-            cache_status "$text"
-          done
+warm_window() {
+  local win=$1 save_cur=$CUR save_msg=$status_msg
+  local i id tag j k item target name file saved
+  local -a msgs titles=()
+  CUR=$win
+  for i in "${!Z_WIN[@]}"; do
+    [[ ${Z_WIN[$i]} == "$win" ]] || continue
+    id=${Z_ID[$i]}
+    tag=${Z_TAG[$i]}
+    case $tag in
+      nav)
+        local count
+        count=$(nav_count "$id")
+        for ((j = 0; j < count; j++)); do
+          SEL["$win|$id"]=$j
+          cache_put "$id" 0
+          cache_put "$id" 1
         done
-      done
+        SEL["$win|$id"]=0
+        ;;
+      input)
+        cache_put "$id" 0
+        cache_put "$id" 1
+        saved=${VAL[$win|$id]}
+        for k in "${!N_NAV[@]}"; do
+          [[ ${N_WIN[$k]} == "$win" && ${N_ACTION[$k]} == load && ${N_TARGET[$k]} == "$id" && -n ${N_NAME[$k]} ]] || continue
+          VAL[$win|$id]=$(read_var "${N_FILE[$k]}" "${N_NAME[$k]}")
+          cache_put "$id" 0
+          cache_put "$id" 1
+        done
+        VAL[$win|$id]=$saved
+        ;;
+      textarea)
+        cache_put "$id" 0
+        saved=${VAL[$win|$id]}
+        for k in "${!N_NAV[@]}"; do
+          [[ ${N_WIN[$k]} == "$win" && ${N_ACTION[$k]} == load && ${N_TARGET[$k]} == "$id" && -z ${N_NAME[$k]} ]] || continue
+          VAL[$win|$id]=$(<"${N_FILE[$k]}")
+          cache_put "$id" 0
+        done
+        VAL[$win|$id]=$saved
+        ;;
+      button)
+        cache_put "$id" 0
+        cache_put "$id" 1
+        ;;
+      command)
+        cache_put "$id" 0
+        cache_put "$id" 1
+        titles+=("${PROP[$win|$id|title]}")
+        ;;
+      header)
+        cache_put "$id" 0
+        ;;
+    esac
+  done
+  msgs=("Prêt" "Déjà à la première fenêtre" "Enregistré" "Rechargé" "Annulé" "Modifié" "Terminé 0" "Terminé 1")
+  for title in "${titles[@]+"${titles[@]}"}"; do
+    local s
+    for s in "${SPINNER[@]}"; do
+      msgs+=("$s En cours : ${title}")
     done
   done
-
-  for ((m = 0; m < ${#MENU[@]}; m++)); do
-    mi=$m
-    focus=3
-    for msg in "${messages[@]}"; do
-      status_msg=$msg
-      text=$(status_text - - -)
-      cache_status "$text"
+  for i in "${!Z_WIN[@]}"; do
+    [[ ${Z_WIN[$i]} == "$win" && ${Z_TAG[$i]} == status ]] || continue
+    id=${Z_ID[$i]}
+    for status_msg in "${msgs[@]}"; do
+      cache_put "$id" 0
     done
   done
-
-  ri=$save_ri
-  fi=$save_fi
-  ci=$save_ci
-  mi=$save_mi
-  focus=$save_focus
   status_msg=$save_msg
-  rebuild
+  CUR=$save_cur
+}
+
+warm_narrow() {
+  local save_cur=$CUR id="" saved key payload i
+  CUR=${WIN_ID[0]}
+  for i in "${!Z_WIN[@]}"; do
+    if [[ ${Z_WIN[$i]} == "$CUR" && ${Z_TAG[$i]} == header ]]; then
+      id=${Z_ID[$i]}
+      break
+    fi
+  done
+  saved=${PROP[$CUR|$id|text]:-}
+  PROP[$CUR|$id|text]="Terminal étroit"
+  cache_put "$id" 0
+  payload=$(zone_payload "$id")
+  BLOCK[narrow]=${BLOCK[$CUR|$id|0|$payload]}
+  PROP[$CUR|$id|text]=$saved
+  CUR=$save_cur
 }
 
 warm_blocks() {
-  rebuild
-  init_zones
-  BLOCK[header]=$(lock_zone banner "$(style_banner "high-tui")")
-  BLOCK[narrow]=$(lock_zone banner "$(style_banner "Terminal étroit")")
-  warm_columns
-  warm_details
-  warm_status
+  local win
+  for win in "${WIN_ID[@]}"; do
+    warm_window "$win"
+  done
+  warm_narrow
+  CUR=${WIN_ID[0]}
+  FOCUS_I=0
+  status_msg="Prêt"
 }
 
 frame_text() {
-  local rub fic champ text
-  local on0=0 on1=0 on2=0 on3=0
-  local c0 c1 c2 c3 cols header detail status dkey skey
-  rebuild
-  rub=${RUBS[$ri]}
-  fic=${FICS[$fi]}
-  champ=${CHAMPS[$ci]}
-  case $focus in
-    0) on0=1 ;;
-    1) on1=1 ;;
-    2) on2=1 ;;
-    3) on3=1 ;;
-  esac
-  c0=$(column_view Rubriques "$ri" "$on0" "${RUBS[@]}")
-  c1=$(column_view Fiches "$fi" "$on1" "${FICS[@]}")
-  c2=$(column_view Champs "$ci" "$on2" "${CHAMPS[@]}")
-  c3=$(column_view Menu "$mi" "$on3" "${MENU[@]}")
-  cols=$(paste_horizontal "$c0" "$c1" "$c2" "$c3")
-  header=${BLOCK[header]}
-  dkey=$(detail_key "$rub" "$fic")
-  detail=${BLOCK[$dkey]}
-  text=$(status_text "$rub" "$fic" "$champ")
-  skey=$(status_key "$text")
-  status=${BLOCK[$skey]}
-  if [[ -n ${COLUMNS:-} && ${COLUMNS} -lt 80 ]]; then
-    stack_vertical "${BLOCK[narrow]}" "$header" "$cols" "$detail" "$status"
-  else
-    stack_vertical "$header" "$cols" "$detail" "$status"
+  local -a blocks=() rows=() parts=()
+  local i id row y h gap prev=0 part blanks
+  declare -A seen=()
+  if [[ -n ${COLUMNS:-} && ${COLUMNS} -lt ${WIN_MAX[$CUR]} ]]; then
+    blocks+=("${BLOCK[narrow]}")
   fi
+  for i in "${!Z_WIN[@]}"; do
+    [[ ${Z_WIN[$i]} == "$CUR" ]] || continue
+    row=${Z_ROW[$i]}
+    if [[ -z ${seen[$row]+x} ]]; then
+      seen[$row]=1
+      rows+=("$row")
+    fi
+  done
+  for row in "${rows[@]}"; do
+    y=0; h=0
+    parts=()
+    for i in "${!Z_WIN[@]}"; do
+      [[ ${Z_WIN[$i]} == "$CUR" && ${Z_ROW[$i]} == "$row" ]] || continue
+      id=${Z_ID[$i]}
+      y=${Z_Y[$i]}
+      h=${Z_OH[$i]}
+      parts+=("$(zone_view "$id")")
+      gap=${Z_GAP[$i]}
+      if (( gap > 0 )); then
+        parts+=("$(blank_block "$h" "$gap")")
+      fi
+    done
+    blanks=$((y - prev))
+    if (( blanks > 0 )); then
+      blocks+=("$(blank_block "$blanks" "${WIN_MAX[$CUR]}")")
+    fi
+    blocks+=("$(paste_horizontal "${parts[@]}")")
+    prev=$((y + h))
+  done
+  blanks=$(( ${WIN_H[$CUR]} - prev ))
+  if (( blanks > 0 )); then
+    blocks+=("$(blank_block "$blanks" "${WIN_MAX[$CUR]}")")
+  fi
+  stack_vertical "${blocks[@]}"
 }

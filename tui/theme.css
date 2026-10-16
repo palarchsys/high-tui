@@ -1,0 +1,23 @@
+window {
+  max-width: 260ch;
+  color: #e6edf3;
+  background: #0d1117;
+  padding: 0;
+  margin: 0;
+}
+
+nav, textarea, input, button, command, header, status {
+  color: #e6edf3;
+  background: #161b22;
+  border: 1ch solid #30363d;
+  border-radius: 1ch;
+  padding: 0 1ch;
+  margin: 1ch 0;
+  line-height: 1;
+  column-gap: 1ch;
+}
+
+nav:focus, textarea:focus, input:focus, button:focus, command:focus {
+  border-color: #58a6ff;
+  font-weight: bold;
+}
