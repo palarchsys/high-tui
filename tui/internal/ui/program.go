@@ -12,7 +12,7 @@ func Run(root string) error {
 	if err != nil {
 		return err
 	}
-	_, err = tea.NewProgram(Model{app: app}).Run()
+	_, err = tea.NewProgram(Model{app: app}, tea.WithFilter(ignoreInterrupt)).Run()
 	return err
 }
 
@@ -144,18 +144,19 @@ func (a *app) onKey(msg tea.KeyPressMsg) tea.Cmd {
 	return nil
 }
 
-func quitKey(msg tea.KeyPressMsg) bool {
-	if msg.String() == "ctrl+c" || msg.String() == "\x03" || msg.String() == "ctrl+q" {
-		return true
+func ignoreInterrupt(_ tea.Model, msg tea.Msg) tea.Msg {
+	if _, ok := msg.(tea.InterruptMsg); ok {
+		return nil
 	}
-	if msg.Keystroke() == "ctrl+c" || msg.Keystroke() == "ctrl+q" {
+	return msg
+}
+
+func quitKey(msg tea.KeyPressMsg) bool {
+	if msg.String() == "ctrl+q" || msg.Keystroke() == "ctrl+q" {
 		return true
 	}
 	k := msg.Key()
-	if !k.Mod.Contains(tea.ModCtrl) {
-		return false
-	}
-	return k.Code == 'c' || k.Code == 'C' || k.Code == 'q' || k.Code == 'Q'
+	return k.Mod.Contains(tea.ModCtrl) && (k.Code == 'q' || k.Code == 'Q')
 }
 
 func cancelEditKey(msg tea.KeyPressMsg) bool {

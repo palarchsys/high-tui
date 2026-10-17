@@ -116,7 +116,7 @@ Une propriété inconnue arrête la génération en nommant l'identifiant.
 | `column-gap` | `0`. L'écart d'une rangée est le plus grand écart de ses zones et de la rangée |
 | `line-height` | `1`, un entier, sans `ch` |
 | `font-weight` | `normal`. L'autre valeur est `bold` |
-| `title-color` | la couleur du texte. Elle colore la première ligne source d'un `header`, d'un `nav`, d'un `select` et du nom d'un `input` |
+| `title-color` | la couleur du texte. Elle colore la première ligne source d'un `header`, d'un `nav`, d'un `select` et du nom d'un `input`. Pendant l'édition, elle colore aussi le contour d'un `input` ou d'un `textarea` |
 
 Une longueur est un nombre seul ou un nombre suivi de `ch`. `:focus` ne s'applique qu'à la zone qui a le focus. Une règle sans `:focus` s'applique aussi à la zone focalisée, donc `title-color` posé sur la balise reste au focus.
 
@@ -132,14 +132,14 @@ La hauteur extérieure d'une zone est `bordure + padding haut + lines + (lines �
 | Haut, Bas | Dans une liste, change la ligne et lance son action de focus. Dans un champ qui déborde, défile, puis change de zone au bord |
 | Entrée | Hors édition, action `enter`. Dans un `textarea`, retour à la ligne. Dans un `input`, enregistre et sort |
 | Ctrl+S | Dans l'éditeur, écrit le fichier de la zone et sort. Hors édition, ignoré |
-| Ctrl+C | Dans l'éditeur, annule et restaure le texte. Hors édition, quitte |
-| Ctrl+Q | Quitte. Une commande en cours est annulée d'abord |
+| Ctrl+C | Dans l'éditeur, annule et restaure le texte. Ne quitte pas le programme |
+| Ctrl+Q | Seule combinaison qui quitte. Une commande en cours est annulée d'abord |
 | Échap | Dans l'éditeur, annule et restaure le texte. Sinon, fenêtre précédente, ou « Déjà à la première fenêtre ». Pendant une commande, annule |
 | `q` | Ne quitte pas. Dans un éditeur, écrit la lettre |
 
 L'action de focus part au lancement, au changement de zone ou de ligne, et à l'ouverture ou au retour d'une fenêtre. Elle ne repart pas à chaque image.
 
-Entrée ouvre une zone éditable. Dans un `textarea`, Entrée insère ensuite un retour à la ligne. Maj+Entrée fait de même quand le terminal l'envoie. Ctrl+S écrit le fichier de la zone, affiche « Enregistré » et sort. Ctrl+C, comme Échap, abandonne le texte saisi, affiche « Annulé » et sort. Les flèches déplacent le curseur. Haut et Bas font défiler quand le curseur atteint le bord. Dans un `input`, Entrée et Ctrl+S enregistrent la valeur et sortent. Maj+Entrée n'y insère pas de ligne. Un collage conserve les retours à la ligne dans un `textarea` et les retire dans un `input`.
+Entrée ouvre une zone éditable. Dans un `textarea`, Entrée insère ensuite un retour à la ligne. Maj+Entrée fait de même quand le terminal l'envoie. Ctrl+S écrit le fichier de la zone, affiche « Enregistré » et sort. Ctrl+C, comme Échap, abandonne le texte saisi, affiche « Annulé » et sort. Ctrl+C ne quitte jamais le programme. Pendant l'édition d'un `input` ou d'un `textarea`, le contour prend `title-color`, la même couleur que les titres. Les flèches déplacent le curseur. Haut et Bas font défiler quand le curseur atteint le bord. Dans un `input`, Entrée et Ctrl+S enregistrent la valeur et sortent. Maj+Entrée n'y insère pas de ligne. Un collage conserve les retours à la ligne dans un `textarea` et les retire dans un `input`.
 
 Le bouton Enregistrer écrit les zones encore marquées « Modifié ». `set` écrit tout de suite.
 

@@ -90,12 +90,36 @@ func TestCtrlSAndCtrlC(t *testing.T) {
 		t.Fatal(b.edit, b.val[key("main", "corps")], b.status)
 	}
 	c := editApp(t)
-	cmd := c.onKey(keyMsg("ctrl+c"))
-	if cmd == nil {
-		t.Fatal("ctrl+c hors édition ignoré")
+	if cmd := c.onKey(keyMsg("ctrl+c")); cmd != nil {
+		t.Fatal("ctrl+c quitte hors édition")
 	}
-	if _, ok := cmd().(tea.QuitMsg); !ok {
-		t.Fatal("pas une sortie")
+	c.running = true
+	if cmd := c.onKey(keyMsg("ctrl+c")); cmd != nil || !c.running {
+		t.Fatal("ctrl+c quitte pendant une commande")
+	}
+}
+
+func TestEditBorderUsesTitleColor(t *testing.T) {
+	a := editApp(t)
+	zone := &a.placed[0].Bands[0].Boxes[0].Zone
+	zone.Base.TitleColor = "#ffa657"
+	zone.Base.BorderColor = "#30363d"
+	zone.FocusOn.TitleColor = "#ffa657"
+	zone.FocusOn.BorderColor = "#58a6ff"
+	before := a.frame()
+	if strings.Contains(before, "255;166;87") {
+		t.Fatal("couleur de titre avant l'édition")
+	}
+	a.onKey(keyMsg("enter"))
+	frame := a.frame()
+	if a.edit == nil {
+		t.Fatal("édition non ouverte")
+	}
+	if !strings.Contains(frame, "255;166;87") {
+		t.Fatal("contour d'édition sans la couleur des titres")
+	}
+	if strings.Contains(frame, "88;166;255") {
+		t.Fatal("contour de focus conservé")
 	}
 }
 
