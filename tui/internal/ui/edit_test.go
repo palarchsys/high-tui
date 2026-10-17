@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -300,28 +301,154 @@ func TestCursorSitsOnNestedText(t *testing.T) {
 	if err := a.beginEdit("corps"); err != nil {
 		t.Fatal(err)
 	}
-	frame := a.frame()
-	lines := strings.Split(frame, "\n")
-	textLine := -1
-	for i, line := range lines {
-		if strings.Contains(visible(line), "HELLO") {
-			textLine = i
+	a.edit.state.Cursor = 1
+	a.reveal()
+	assertCursorRune(t, a, 'E')
+}
+
+func TestCursorCellIsTheEditedCharacter(t *testing.T) {
+	root := filepath.Join("..", "..")
+	a, err := newApp(root, 80)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a.val[key("main", "apercu")] = "Aa\nBb\nCc"
+	focusZone(t, a, "apercu")
+	if err := a.beginEdit("apercu"); err != nil {
+		t.Fatal(err)
+	}
+	a.edit.state.Cursor = 3
+	a.reveal()
+	assertCursorRune(t, a, 'B')
+	a.edit.state.Cursor = 4
+	a.reveal()
+	assertCursorRune(t, a, 'b')
+
+	a.edit.state.Cursor = 2
+	a.reveal()
+	assertCursorAfter(t, a, 'a')
+
+	a.edit = nil
+	a.val[key("main", "valeur-hote")] = "QZQ"
+	focusZone(t, a, "valeur-hote")
+	if err := a.beginEdit("valeur-hote"); err != nil {
+		t.Fatal(err)
+	}
+	a.edit.state.Cursor = 1
+	a.reveal()
+	assertCursorRune(t, a, 'Z')
+
+	_, box, ok := a.zoneByID("apercu")
+	if !ok {
+		t.Fatal("apercu")
+	}
+	text := strings.Repeat("Q", box.TextW) + "Z"
+	a.edit = nil
+	a.val[key("main", "apercu")] = text
+	focusZone(t, a, "apercu")
+	if err := a.beginEdit("apercu"); err != nil {
+		t.Fatal(err)
+	}
+	a.edit.state.Cursor = box.TextW
+	a.reveal()
+	assertCursorRune(t, a, 'Z')
+
+	var long strings.Builder
+	for i := 0; i < 12; i++ {
+		fmt.Fprintf(&long, "L%d\n", i)
+	}
+	long.WriteString("ZZ")
+	a.edit = nil
+	a.val[key("main", "apercu")] = long.String()
+	focusZone(t, a, "apercu")
+	if err := a.beginEdit("apercu"); err != nil {
+		t.Fatal(err)
+	}
+	a.edit.state.Cursor = strings.Index(long.String(), "Z")
+	a.reveal()
+	assertCursorRune(t, a, 'Z')
+}
+
+func focusZone(t *testing.T, a *app, id string) {
+	t.Helper()
+	for i, box := range a.boxes() {
+		if box.Zone.ID == id {
+			a.focus = i
+			return
 		}
 	}
-	if textLine < 0 {
-		t.Fatal("HELLO absent")
-	}
+	t.Fatalf("zone absente : %s", id)
+}
+
+func assertCursorRune(t *testing.T, a *app, want rune) {
+	t.Helper()
+	frame := a.frame()
 	x, y, ok := a.cursor()
-	if !ok || y != textLine {
-		t.Fatalf("curseur %d,%d ok=%v, texte ligne %d", x, y, ok, textLine)
+	if !ok {
+		t.Fatal("curseur absent")
 	}
-	plain := visible(lines[y])
-	at := strings.Index(plain, "HELLO")
-	col := lipgloss.Width(plain[:at])
-	end := col + lipgloss.Width("HELLO")
-	if x < col || x > end {
-		t.Fatalf("curseur colonne %d hors de %d-%d", x, col, end)
+	got := runeAt(frame, x, y)
+	if got != want {
+		t.Fatalf("cellule %q en %d,%d, attendu %q\n%s", got, x, y, want, cursorMark(frame, x, y))
 	}
+}
+
+func assertCursorAfter(t *testing.T, a *app, prev rune) {
+	t.Helper()
+	frame := a.frame()
+	x, y, ok := a.cursor()
+	if !ok {
+		t.Fatal("curseur absent")
+	}
+	got := runeAt(frame, x, y)
+	before := runeAt(frame, x-1, y)
+	if before != prev || isBorder(got) || isBorder(before) {
+		t.Fatalf("curseur %q après %q en %d,%d\n%s", got, before, x, y, cursorMark(frame, x, y))
+	}
+}
+
+func runeAt(frame string, x, y int) rune {
+	lines := strings.Split(frame, "\n")
+	if y < 0 || y >= len(lines) || x < 0 {
+		return 0
+	}
+	col := 0
+	for _, r := range visible(lines[y]) {
+		w := lipgloss.Width(string(r))
+		if w < 1 {
+			w = 1
+		}
+		if x >= col && x < col+w {
+			return r
+		}
+		col += w
+	}
+	return 0
+}
+
+func isBorder(r rune) bool {
+	switch r {
+	case '─', '│', '┌', '┐', '└', '┘', '├', '┤', '┬', '┴', '┼', '╭', '╮', '╯', '╰':
+		return true
+	default:
+		return false
+	}
+}
+
+func cursorMark(frame string, x, y int) string {
+	lines := strings.Split(frame, "\n")
+	var b strings.Builder
+	for i := y - 1; i <= y+1; i++ {
+		if i < 0 || i >= len(lines) {
+			continue
+		}
+		plain := visible(lines[i])
+		fmt.Fprintf(&b, "%2d %s\n", i, plain)
+		if i == y {
+			fmt.Fprintf(&b, "   %s^\n", strings.Repeat(" ", x))
+		}
+	}
+	return b.String()
 }
 
 func TestSetWritesTempFile(t *testing.T) {
