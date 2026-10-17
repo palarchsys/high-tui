@@ -57,47 +57,39 @@ func loadFile(root, path string, wins *[]model.Window, seen map[string]bool) err
 		return err
 	}
 	inherit := css.Blank()
-	win.Style, err = css.Resolve(rules, "window", win.Classes, win.ID, false, inherit)
+	win.Style, err = css.Resolve(rules, "body", nil, "", false, inherit)
 	if err != nil {
 		return err
 	}
 	parent := model.Style{Color: win.Style.Color, Background: win.Style.Background}
 	var hrefs []string
-	for ri := range win.Rows {
-		row := &win.Rows[ri]
-		row.Style, err = css.Resolve(rules, row.Tag, row.Classes, row.ID, false, parent)
+	for _, zone := range win.Grid.Zones() {
+		zone.Base, err = css.Resolve(rules, zone.Tag, zone.Classes, zone.ID, false, parent)
 		if err != nil {
 			return err
 		}
-		for zi := range row.Zones {
-			zone := &row.Zones[zi]
-			zone.Base, err = css.Resolve(rules, zone.Tag, zone.Classes, zone.ID, false, parent)
-			if err != nil {
+		zone.FocusOn, err = css.Resolve(rules, zone.Tag, zone.Classes, zone.ID, true, parent)
+		if err != nil {
+			return err
+		}
+		if zone.File != "" {
+			if err := exist(root, zone.File); err != nil {
 				return err
 			}
-			zone.FocusOn, err = css.Resolve(rules, zone.Tag, zone.Classes, zone.ID, true, parent)
-			if err != nil {
-				return err
-			}
-			if zone.File != "" {
-				if err := exist(root, zone.File); err != nil {
+		}
+		hrefs = append(hrefs, hrefsOf(zone.Focus)...)
+		hrefs = append(hrefs, hrefsOf(zone.Enter)...)
+		for _, item := range zone.Items {
+			hrefs = append(hrefs, hrefsOf(item.Focus)...)
+			hrefs = append(hrefs, hrefsOf(item.Enter)...)
+			if item.Focus.File != "" {
+				if err := exist(root, item.Focus.File); err != nil {
 					return err
 				}
 			}
-			hrefs = append(hrefs, hrefsOf(zone.Focus)...)
-			hrefs = append(hrefs, hrefsOf(zone.Enter)...)
-			for _, item := range zone.Items {
-				hrefs = append(hrefs, hrefsOf(item.Focus)...)
-				hrefs = append(hrefs, hrefsOf(item.Enter)...)
-				if item.Focus.File != "" {
-					if err := exist(root, item.Focus.File); err != nil {
-						return err
-					}
-				}
-				if item.Enter.File != "" {
-					if err := exist(root, item.Enter.File); err != nil {
-						return err
-					}
+			if item.Enter.File != "" {
+				if err := exist(root, item.Enter.File); err != nil {
+					return err
 				}
 			}
 		}

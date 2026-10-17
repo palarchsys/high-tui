@@ -66,23 +66,23 @@ func newApp(root string, width int) (*app, error) {
 	for wi := range a.wins {
 		win := &a.wins[wi]
 		a.rawLabel[win.ID] = win.Label
-		for ri := range win.Rows {
-			for zi := range win.Rows[ri].Zones {
-				zone := &win.Rows[ri].Zones[zi]
-				k := key(win.ID, zone.ID)
-				a.rawLabel[k] = zone.Label
-				a.rawValue[k] = zone.Value
-				a.file[k] = zone.File
-				a.name[k] = zone.Name
-				if err := a.readZone(win.ID, *zone); err != nil {
-					return nil, err
-				}
-				for ii := range zone.Items {
-					item := &zone.Items[ii]
-					ik := key(win.ID, item.ID)
-					a.rawLabel[ik] = item.Label
-					a.rawValue[ik] = item.Value
-				}
+		for _, zone := range win.Grid.Zones() {
+			k := key(win.ID, zone.ID)
+			a.rawLabel[k] = zone.Label
+			a.rawValue[k] = zone.Value
+			a.file[k] = zone.File
+			a.name[k] = zone.Name
+			if zone.File == "" && (zone.Tag == "input" || zone.Tag == "textarea") {
+				a.val[k] = zone.Value
+			}
+			if err := a.readZone(win.ID, *zone); err != nil {
+				return nil, err
+			}
+			for ii := range zone.Items {
+				item := &zone.Items[ii]
+				ik := key(win.ID, item.ID)
+				a.rawLabel[ik] = item.Label
+				a.rawValue[ik] = item.Value
 			}
 		}
 	}
@@ -118,49 +118,48 @@ func (a *app) resolveAll() error {
 		if err != nil {
 			return err
 		}
-		for ri := range win.Rows {
-			for zi := range win.Rows[ri].Zones {
-				zone := &win.Rows[ri].Zones[zi]
-				from := src.Rows[ri].Zones[zi]
-				zone.Label, err = resolve(from.Label, zone.ID)
+		live := win.Grid.Zones()
+		fromZones := src.Grid.Zones()
+		for i, zone := range live {
+			from := fromZones[i]
+			zone.Label, err = resolve(from.Label, zone.ID)
+			if err != nil {
+				return err
+			}
+			zone.Value, err = resolve(from.Value, zone.ID)
+			if err != nil {
+				return err
+			}
+			zone.Focus = from.Focus
+			zone.Enter = from.Enter
+			zone.Focus.Value, err = resolve(from.Focus.Value, zone.ID)
+			if err != nil {
+				return err
+			}
+			zone.Enter.Value, err = resolve(from.Enter.Value, zone.ID)
+			if err != nil {
+				return err
+			}
+			for ii := range zone.Items {
+				item := &zone.Items[ii]
+				rawItem := from.Items[ii]
+				item.Label, err = resolve(rawItem.Label, item.ID)
 				if err != nil {
 					return err
 				}
-				zone.Value, err = resolve(from.Value, zone.ID)
+				item.Value, err = resolve(rawItem.Value, item.ID)
 				if err != nil {
 					return err
 				}
-				zone.Focus = from.Focus
-				zone.Enter = from.Enter
-				zone.Focus.Value, err = resolve(from.Focus.Value, zone.ID)
+				item.Focus = rawItem.Focus
+				item.Enter = rawItem.Enter
+				item.Focus.Value, err = resolve(rawItem.Focus.Value, item.ID)
 				if err != nil {
 					return err
 				}
-				zone.Enter.Value, err = resolve(from.Enter.Value, zone.ID)
+				item.Enter.Value, err = resolve(rawItem.Enter.Value, item.ID)
 				if err != nil {
 					return err
-				}
-				for ii := range zone.Items {
-					item := &zone.Items[ii]
-					rawItem := from.Items[ii]
-					item.Label, err = resolve(rawItem.Label, item.ID)
-					if err != nil {
-						return err
-					}
-					item.Value, err = resolve(rawItem.Value, item.ID)
-					if err != nil {
-						return err
-					}
-					item.Focus = rawItem.Focus
-					item.Enter = rawItem.Enter
-					item.Focus.Value, err = resolve(rawItem.Focus.Value, item.ID)
-					if err != nil {
-						return err
-					}
-					item.Enter.Value, err = resolve(rawItem.Enter.Value, item.ID)
-					if err != nil {
-						return err
-					}
 				}
 			}
 		}
@@ -211,14 +210,12 @@ func (a *app) current() layout.Placed { return a.placed[a.cur] }
 
 func (a *app) boxes() []layout.Box {
 	var out []layout.Box
-	for _, band := range a.current().Bands {
-		for _, box := range band.Boxes {
-			switch box.Zone.Tag {
-			case "nav", "select", "input", "textarea", "button", "command":
-				out = append(out, box)
-			}
+	a.current().EachBox(func(box *layout.Box) {
+		switch box.Zone.Tag {
+		case "nav", "input", "textarea", "button":
+			out = append(out, *box)
 		}
-	}
+	})
 	return out
 }
 

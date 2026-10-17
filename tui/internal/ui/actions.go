@@ -32,7 +32,7 @@ func (a *app) applyFocus() error {
 		return nil
 	}
 	mark := a.winID() + "\x1f" + box.Zone.ID
-	if box.Zone.Tag == "nav" || box.Zone.Tag == "select" {
+	if box.Zone.Tag == "nav" {
 		mark += fmt.Sprintf("\x1f%d", a.sel[key(a.winID(), box.Zone.ID)])
 	}
 	if mark == a.focusMark {
@@ -54,7 +54,7 @@ func (a *app) action(which string) (model.Action, string) {
 		return model.Action{}, ""
 	}
 	zone := box.Zone
-	if zone.Tag == "nav" || zone.Tag == "select" {
+	if zone.Tag == "nav" {
 		sel := a.sel[key(a.winID(), zone.ID)]
 		if sel < 0 || sel >= len(zone.Items) {
 			return model.Action{}, zone.Label
@@ -107,14 +107,18 @@ func (a *app) takePending() tea.Cmd {
 }
 
 func (a *app) zoneByID(id string) (model.Zone, layout.Box, bool) {
-	for _, band := range a.current().Bands {
-		for _, box := range band.Boxes {
-			if box.Zone.ID == id {
-				return box.Zone, box, true
-			}
+	var found layout.Box
+	ok := false
+	a.current().EachBox(func(box *layout.Box) {
+		if box.Zone.ID == id {
+			found = *box
+			ok = true
 		}
+	})
+	if !ok {
+		return model.Zone{}, layout.Box{}, false
 	}
-	return model.Zone{}, layout.Box{}, false
+	return found.Zone, found, true
 }
 
 func (a *app) readZone(winID string, zone model.Zone) error {
@@ -216,20 +220,23 @@ func (a *app) set(act model.Action) error {
 
 func (a *app) save() error {
 	win := a.wins[a.cur]
-	for _, row := range win.Rows {
-		for _, zone := range row.Zones {
-			if zone.Readonly || (zone.Tag != "input" && zone.Tag != "textarea") {
-				continue
-			}
-			k := key(win.ID, zone.ID)
-			if !a.dirty[k] {
-				continue
-			}
-			if err := a.writeZone(zone, k); err != nil {
-				return err
-			}
-			a.dirty[k] = false
+	var saveErr error
+	win.Grid.Each(func(zone *model.Zone) {
+		if saveErr != nil || zone.Readonly || (zone.Tag != "input" && zone.Tag != "textarea") {
+			return
 		}
+		k := key(win.ID, zone.ID)
+		if !a.dirty[k] {
+			return
+		}
+		if err := a.writeZone(*zone, k); err != nil {
+			saveErr = err
+			return
+		}
+		a.dirty[k] = false
+	})
+	if saveErr != nil {
+		return saveErr
 	}
 	a.status = "Enregistré"
 	return nil
@@ -271,17 +278,22 @@ func (a *app) refresh() error {
 	}
 	for wi := range a.wins {
 		win := a.wins[wi]
-		for _, row := range win.Rows {
-			for _, zone := range row.Zones {
-				k := key(win.ID, zone.ID)
-				a.file[k] = zone.File
-				a.name[k] = zone.Name
-				a.dirty[k] = false
-				a.scroll[k] = 0
-				if err := a.readZone(win.ID, zone); err != nil {
-					return err
-				}
+		var readErr error
+		win.Grid.Each(func(zone *model.Zone) {
+			if readErr != nil {
+				return
 			}
+			k := key(win.ID, zone.ID)
+			a.file[k] = zone.File
+			a.name[k] = zone.Name
+			a.dirty[k] = false
+			a.scroll[k] = 0
+			if err := a.readZone(win.ID, *zone); err != nil {
+				readErr = err
+			}
+		})
+		if readErr != nil {
+			return readErr
 		}
 	}
 	a.focusMark = ""
@@ -420,7 +432,7 @@ func (a *app) moveVertical(delta int) error {
 	}
 	zone := box.Zone
 	k := key(a.winID(), zone.ID)
-	if zone.Tag == "nav" || zone.Tag == "select" {
+	if zone.Tag == "nav" {
 		if len(zone.Items) == 0 {
 			return nil
 		}
