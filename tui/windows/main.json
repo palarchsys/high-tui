@@ -1,14 +1,14 @@
 {
   "id": "main",
   "tag": "window",
-  "title": "high-tui",
+  "label": "high-tui",
   "rows": [
     {
       "id": "entete",
       "tag": "header",
       "lines": 1,
       "columns": [
-        { "id": "titre", "tag": "header", "fr": 1, "text": "high-tui" }
+        { "id": "titre", "tag": "header", "fr": 1, "label": "high-tui" }
       ]
     },
     {
@@ -20,100 +20,136 @@
           "id": "nav-rubriques",
           "tag": "nav",
           "fr": 1,
-          "title": "Rubriques",
+          "label": "Rubriques",
           "items": [
             {
               "id": "item-reseau",
-              "title": "Réseau",
-              "action": "load",
-              "target": "valeur-hote",
-              "file": "samples/passage.env",
-              "name": "HOTE"
+              "label": "Réseau",
+              "focus": {
+                "action": "load",
+                "target": "valeur-hote",
+                "file": "samples/passage.env",
+                "name": "HOTE"
+              },
+              "enter": { "action": "edit", "target": "valeur-hote" }
             },
             {
               "id": "item-notes",
-              "title": "Notes",
-              "action": "window",
-              "href": "notes.json"
+              "label": "Notes",
+              "enter": { "action": "window", "href": "notes.json" }
             }
           ]
         },
         {
           "id": "nav-fiches",
-          "tag": "nav",
+          "tag": "select",
           "fr": 1,
-          "title": "Fiches",
+          "label": "Fiches",
           "items": [
             {
               "id": "item-passage",
-              "title": "Passage",
-              "action": "load",
-              "target": "valeur-hote",
-              "file": "samples/passage.env",
-              "name": "HOTE"
+              "label": "Passage",
+              "value": "127.0.0.1",
+              "focus": {
+                "action": "load",
+                "target": "valeur-hote",
+                "file": "samples/passage.env",
+                "name": "HOTE"
+              },
+              "enter": {
+                "action": "set",
+                "target": "valeur-hote",
+                "file": "samples/passage.env",
+                "name": "HOTE",
+                "value": "127.0.0.1"
+              }
             },
             {
               "id": "item-archive",
-              "title": "Archive",
-              "action": "load",
-              "target": "valeur-hote",
-              "file": "samples/passage.env",
-              "name": "PORT"
+              "label": "Archive",
+              "value": "8080",
+              "focus": {
+                "action": "load",
+                "target": "valeur-hote",
+                "file": "samples/passage.env",
+                "name": "PORT"
+              },
+              "enter": {
+                "action": "set",
+                "target": "valeur-hote",
+                "file": "samples/passage.env",
+                "name": "PORT",
+                "value": "8080"
+              }
             }
           ]
         },
         {
           "id": "nav-champs",
-          "tag": "nav",
+          "tag": "select",
           "fr": 1,
-          "title": "Champs",
+          "label": "Champs",
           "items": [
             {
               "id": "item-nom",
-              "title": "Nom",
-              "action": "load",
-              "target": "valeur-hote",
-              "file": "samples/passage.env",
-              "name": "NOM"
+              "label": "Nom",
+              "focus": {
+                "action": "load",
+                "target": "valeur-hote",
+                "file": "samples/passage.env",
+                "name": "NOM"
+              },
+              "enter": { "action": "edit", "target": "valeur-hote" }
             },
             {
               "id": "item-hote",
-              "title": "Hôte",
-              "action": "load",
-              "target": "valeur-hote",
-              "file": "samples/passage.env",
-              "name": "HOTE"
+              "label": "Hôte",
+              "focus": {
+                "action": "load",
+                "target": "valeur-hote",
+                "file": "samples/passage.env",
+                "name": "HOTE"
+              },
+              "enter": { "action": "edit", "target": "valeur-hote" }
             },
             {
               "id": "item-port",
-              "title": "Port",
-              "action": "load",
-              "target": "valeur-hote",
-              "file": "samples/passage.env",
-              "name": "PORT"
+              "label": "Port",
+              "focus": {
+                "action": "load",
+                "target": "valeur-hote",
+                "file": "samples/passage.env",
+                "name": "PORT"
+              },
+              "enter": { "action": "edit", "target": "valeur-hote" }
             }
           ]
         },
         {
           "id": "nav-menu",
-          "tag": "nav",
+          "tag": "select",
           "fr": 1,
-          "title": "Menu",
+          "label": "Menu",
           "items": [
             {
               "id": "item-ouvrir",
-              "title": "Ouvrir",
-              "action": "load",
-              "target": "apercu",
-              "file": "samples/brouillon.txt"
+              "label": "Ouvrir",
+              "focus": {
+                "action": "load",
+                "target": "apercu",
+                "file": "samples/brouillon.txt"
+              }
             },
             {
               "id": "item-modifier",
-              "title": "Modifier",
-              "action": "load",
-              "target": "valeur-hote",
-              "file": "samples/passage.env",
-              "name": "HOTE"
+              "label": "Modifier",
+              "focus": {
+                "action": "load",
+                "target": "valeur-hote",
+                "file": "samples/passage.env",
+                "name": "HOTE"
+              },
+              "enter": { "action": "edit", "target": "valeur-hote" }
             }
           ]
         }
@@ -130,14 +166,16 @@
           "fr": 1,
           "file": "samples/passage.env",
           "name": "HOTE",
-          "save": "button"
+          "save": "button",
+          "enter": { "action": "edit", "target": "valeur-hote" }
         },
         {
           "id": "apercu",
           "tag": "textarea",
           "fr": 2,
           "file": "samples/passage.env",
-          "readonly": true
+          "readonly": false,
+          "enter": { "action": "edit", "target": "apercu" }
         },
         {
           "id": "sortie",
@@ -153,15 +191,26 @@
       "tag": "main",
       "lines": 1,
       "columns": [
-        { "id": "enregistrer", "tag": "button", "fr": 1, "action": "save", "text": "Enregistrer" },
-        { "id": "recharger", "tag": "button", "fr": 1, "action": "refresh", "text": "Recharger" },
+        {
+          "id": "enregistrer",
+          "tag": "button",
+          "fr": 1,
+          "label": "Enregistrer",
+          "enter": { "action": "save" }
+        },
+        {
+          "id": "recharger",
+          "tag": "button",
+          "fr": 1,
+          "label": "Recharger",
+          "enter": { "action": "refresh" }
+        },
         {
           "id": "essai",
           "tag": "command",
           "fr": 1,
-          "title": "Essai local",
-          "run": "echo ok",
-          "output": "sortie"
+          "label": "Essai local",
+          "enter": { "action": "run", "run": "echo ok", "output": "sortie" }
         }
       ]
     },

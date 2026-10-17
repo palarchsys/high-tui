@@ -6,7 +6,7 @@ window {
   margin: 0;
 }
 
-nav, textarea, input, button, command, header, status {
+nav, select, textarea, input, button, command, header, status {
   color: #e6edf3;
   background: #161b22;
   border: 1ch solid #30363d;
@@ -17,7 +17,7 @@ nav, textarea, input, button, command, header, status {
   column-gap: 1ch;
 }
 
-nav:focus, textarea:focus, input:focus, button:focus, command:focus {
+nav:focus, select:focus, textarea:focus, input:focus, button:focus, command:focus {
   border-color: #58a6ff;
   font-weight: bold;
 }

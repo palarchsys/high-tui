@@ -9,11 +9,12 @@ Z_FG=() Z_BG=() Z_BC=() Z_BW=() Z_BOLD=()
 Z_FFG=() Z_FBG=() Z_FBC=() Z_FBOLD=()
 Z_PT=() Z_PB=() Z_PL=() Z_PR=() Z_LH=() Z_GAP=()
 N_WIN=() N_NAV=() N_INDEX=() N_ID=() N_TITLE=()
-N_ACTION=() N_TARGET=() N_FILE=() N_NAME=() N_HREF=()
+N_FACT=() N_FTGT=() N_FFILE=() N_FNAME=() N_FHREF=() N_FRUN=() N_FOUT=()
+N_EACT=() N_ETGT=() N_EFILE=() N_ENAME=() N_EHREF=() N_ERUN=() N_EOUT=() N_EVALUE=()
 F_WIN=() F_ID=()
 declare -gA ZIX=() PROP=() WIN_MAX=() WIN_TITLE=() WIN_FILE=()
 declare -gA WIN_BG=() WIN_FG=() WIN_H=() WIN_BY_FILE=()
-declare -gA SEL=() VAL=() DIRTY=()
+declare -gA SEL=() VAL=() DIRTY=() SCROLL=()
 CUR=
 FOCUS_I=0
 STACK=()
@@ -21,6 +22,8 @@ status_msg="Prêt"
 FG_UI=
 ACCENT_UI=
 MAXW=0
+FOCUS_MARK=
+RETURNING=0
 SPINNER=(⠋ ⠙ ⠹ ⠸)
 
 load_layout() {
@@ -57,9 +60,11 @@ load_layout() {
         PROP["$w|$id|$row"]=$idx
         ;;
       N)
-        N_WIN+=("$w"); N_NAV+=("$id"); N_INDEX+=("$row"); N_ID+=("$idx")
-        N_TITLE+=("$tag"); N_ACTION+=("$x"); N_TARGET+=("$y"); N_FILE+=("$ow")
-        N_NAME+=("$oh"); N_HREF+=("$tw")
+        N_WIN+=("$w"); N_NAV+=("$id"); N_INDEX+=("$row"); N_ID+=("$idx"); N_TITLE+=("$tag")
+        N_FACT+=("$x"); N_FTGT+=("$y"); N_FFILE+=("$ow"); N_FNAME+=("$oh"); N_FHREF+=("$tw")
+        N_FRUN+=("$lines"); N_FOUT+=("$ch")
+        N_EACT+=("$fg"); N_ETGT+=("$bg"); N_EFILE+=("$bc"); N_ENAME+=("$bw"); N_EHREF+=("$bold")
+        N_ERUN+=("$ffg"); N_EOUT+=("$fbg"); N_EVALUE+=("$fbc")
         ;;
       F)
         F_WIN+=("$w"); F_ID+=("$row")
@@ -71,7 +76,7 @@ load_layout() {
   FG_UI=${WIN_FG[$CUR]}
   local i
   for i in "${!Z_WIN[@]}"; do
-    if [[ ${Z_WIN[$i]} == "$CUR" && ${Z_TAG[$i]} == nav ]]; then
+    if [[ ${Z_WIN[$i]} == "$CUR" && ( ${Z_TAG[$i]} == nav || ${Z_TAG[$i]} == select ) ]]; then
       ACCENT_UI=${Z_FBC[$i]}
       break
     fi
@@ -89,10 +94,11 @@ init_values() {
     elif [[ $tag == textarea ]]; then
       VAL["$w|$id"]=$(<"${PROP[$w|$id|file]}")
     fi
-    if [[ $tag == nav ]]; then
+    if [[ $tag == nav || $tag == select ]]; then
       SEL["$w|$id"]=0
     fi
     DIRTY["$w|$id"]=0
+    SCROLL["$w|$id"]=0
   done
 }
 
@@ -156,6 +162,7 @@ move_focus() {
   FOCUS_I=$((FOCUS_I + dir))
   if (( FOCUS_I < 0 )); then FOCUS_I=0; fi
   if (( n > 0 && FOCUS_I >= n )); then FOCUS_I=$((n - 1)); fi
+  apply_focus
 }
 
 nav_count() {
@@ -173,13 +180,25 @@ move_vert() {
   id=$(focused_id)
   [[ -z $id ]] && return 0
   tag=${Z_TAG[${ZIX[$CUR|$id]}]}
-  if [[ $tag == nav ]]; then
+  if [[ $tag == nav || $tag == select ]]; then
     sel=${SEL[$CUR|$id]:-0}
     count=$(nav_count "$id")
     sel=$((sel + dir))
     if (( sel < 0 )); then sel=0; fi
     if (( count > 0 && sel >= count )); then sel=$((count - 1)); fi
     SEL[$CUR|$id]=$sel
+    apply_focus
+  elif [[ $tag == textarea || $tag == input ]]; then
+    local max s
+    max=$(scroll_max "$id")
+    s=${SCROLL[$CUR|$id]:-0}
+    if (( max > 0 && dir < 0 && s > 0 )); then
+      SCROLL[$CUR|$id]=$((s - 1))
+    elif (( max > 0 && dir > 0 && s < max )); then
+      SCROLL[$CUR|$id]=$((s + 1))
+    else
+      move_focus "$dir"
+    fi
   else
     move_focus "$dir"
   fi
@@ -209,6 +228,7 @@ nav_load_zone() {
     VAL[$CUR|$target]=$(<"$file")
   fi
   DIRTY[$CUR|$target]=0
+  SCROLL[$CUR|$target]=0
   refresh_zone "$target"
 }
 
@@ -220,11 +240,17 @@ nav_open_window() {
   MAXW=${WIN_MAX[$CUR]}
   FOCUS_I=0
   status_msg="Prêt"
+  apply_focus
 }
 
 nav_return() {
+  if (( RETURNING == 1 )); then
+    return 0
+  fi
+  RETURNING=1
   if (( ${#STACK[@]} == 0 )); then
     status_msg="Déjà à la première fenêtre"
+    RETURNING=0
     return 0
   fi
   CUR=${STACK[-1]}
@@ -232,20 +258,8 @@ nav_return() {
   MAXW=${WIN_MAX[$CUR]}
   FOCUS_I=0
   status_msg="Prêt"
-}
-
-activate_nav() {
-  local id=$1 sel pos
-  sel=${SEL[$CUR|$id]:-0}
-  pos=$(nav_item_at "$id" "$sel")
-  if (( pos < 0 )); then
-    return 0
-  fi
-  case ${N_ACTION[$pos]} in
-    load) nav_load_zone "${N_TARGET[$pos]}" "${N_FILE[$pos]}" "${N_NAME[$pos]}" ;;
-    window) nav_open_window "${N_HREF[$pos]}" ;;
-    return) nav_return ;;
-  esac
+  apply_focus
+  RETURNING=0
 }
 
 edit_input() {
@@ -267,6 +281,7 @@ edit_input() {
       DIRTY[$CUR|$id]=1
       status_msg="Modifié"
     fi
+    SCROLL[$CUR|$id]=0
     refresh_zone "$id"
   else
     status_msg="Annulé"
@@ -285,7 +300,7 @@ edit_textarea() {
   if [[ -t 1 ]]; then
     printf '\e[?25h'
   fi
-  if new=$(write_value "${PROP[$CUR|$id|title]:-${id}}" "${VAL[$CUR|$id]}" "${Z_TW[$idx]}" "${Z_LINES[$idx]}"); then
+  if new=$(write_value "${PROP[$CUR|$id|label]:-${id}}" "${VAL[$CUR|$id]}" "${Z_TW[$idx]}" "${Z_LINES[$idx]}"); then
     VAL[$CUR|$id]=$new
     if [[ ${PROP[$CUR|$id|save]} == enter ]]; then
       printf '%s' "$new" > "${PROP[$CUR|$id|file]}"
@@ -295,6 +310,7 @@ edit_textarea() {
       DIRTY[$CUR|$id]=1
       status_msg="Modifié"
     fi
+    SCROLL[$CUR|$id]=0
     refresh_zone "$id"
   else
     status_msg="Annulé"
@@ -330,38 +346,137 @@ refresh_active() {
     if [[ $tag == input ]]; then
       VAL[$CUR|$id]=$(read_var "${PROP[$CUR|$id|file]}" "${PROP[$CUR|$id|name]}")
       DIRTY[$CUR|$id]=0
+      SCROLL[$CUR|$id]=0
       refresh_zone "$id"
     elif [[ $tag == textarea ]]; then
       VAL[$CUR|$id]=$(<"${PROP[$CUR|$id|file]}")
       DIRTY[$CUR|$id]=0
+      SCROLL[$CUR|$id]=0
       refresh_zone "$id"
     fi
   done
   status_msg="Rechargé"
 }
 
-activate() {
-  local id tag
+edit_target() {
+  local id=$1 tag
+  [[ -z $id ]] && return 0
+  if [[ -z ${ZIX[$CUR|$id]+x} ]]; then
+    status_msg="Cible absente"
+    return 0
+  fi
+  tag=${Z_TAG[${ZIX[$CUR|$id]}]}
+  case $tag in
+    input) edit_input "$id" ;;
+    textarea) edit_textarea "$id" ;;
+  esac
+}
+
+apply_set() {
+  local target=$1 file=$2 name=$3 value=$4 tag
+  write_var "$file" "$name" "$value"
+  if [[ -n $target && -n ${ZIX[$CUR|$target]+x} ]]; then
+    tag=${Z_TAG[${ZIX[$CUR|$target]}]}
+    PROP[$CUR|$target|file]=$file
+    if [[ $tag == input ]]; then
+      PROP[$CUR|$target|name]=$name
+      VAL[$CUR|$target]=$value
+    elif [[ $tag == textarea ]]; then
+      VAL[$CUR|$target]=$(<"$file")
+    fi
+    DIRTY[$CUR|$target]=0
+    SCROLL[$CUR|$target]=0
+    refresh_zone "$target"
+  fi
+  status_msg="Enregistré"
+}
+
+dispatch_action() {
+  local zone=$1 action=$2 target=$3 file=$4 name=$5 href=$6 run=$7 output=$8 value=${9:-}
+  case $action in
+    "") return 0 ;;
+    load) nav_load_zone "$target" "$file" "$name" ;;
+    edit)
+      if [[ -z $target ]]; then target=$zone; fi
+      edit_target "$target"
+      ;;
+    window) nav_open_window "$href" ;;
+    return) nav_return ;;
+    save) save_active ;;
+    refresh) refresh_active ;;
+    set) apply_set "$target" "$file" "$name" "$value" ;;
+    run)
+      if [[ -n $run ]]; then PROP[$CUR|$zone|run]=$run; fi
+      if [[ -n $output ]]; then PROP[$CUR|$zone|output]=$output; fi
+      run_command "$zone"
+      ;;
+  esac
+}
+
+apply_focus() {
+  local id tag sel pos
   id=$(focused_id)
   [[ -z $id ]] && return 0
   tag=${Z_TAG[${ZIX[$CUR|$id]}]}
-  case $tag in
-    nav) activate_nav "$id" ;;
-    input) edit_input "$id" ;;
-    textarea) edit_textarea "$id" ;;
-    button)
-      case ${PROP[$CUR|$id|action]} in
-        save) save_active ;;
-        refresh) refresh_active ;;
-      esac
-      ;;
-    command) run_command "$id" ;;
-  esac
+  if [[ $tag == nav || $tag == select ]]; then
+    sel=${SEL[$CUR|$id]:-0}
+    if [[ $FOCUS_MARK == "$CUR|$id|$sel" ]]; then
+      return 0
+    fi
+    FOCUS_MARK="$CUR|$id|$sel"
+    pos=$(nav_item_at "$id" "$sel")
+    if (( pos < 0 )); then
+      return 0
+    fi
+    dispatch_action "$id" \
+      "${N_FACT[$pos]}" "${N_FTGT[$pos]}" "${N_FFILE[$pos]}" "${N_FNAME[$pos]}" \
+      "${N_FHREF[$pos]}" "${N_FRUN[$pos]}" "${N_FOUT[$pos]}" ""
+  else
+    if [[ $FOCUS_MARK == "$CUR|$id" ]]; then
+      return 0
+    fi
+    FOCUS_MARK="$CUR|$id"
+    dispatch_action "$id" \
+      "${PROP[$CUR|$id|focus.action]:-}" \
+      "${PROP[$CUR|$id|focus.target]:-}" \
+      "${PROP[$CUR|$id|focus.file]:-}" \
+      "${PROP[$CUR|$id|focus.name]:-}" \
+      "${PROP[$CUR|$id|focus.href]:-}" \
+      "${PROP[$CUR|$id|focus.run]:-}" \
+      "${PROP[$CUR|$id|focus.output]:-}" \
+      "${PROP[$CUR|$id|focus.value]:-}"
+  fi
+}
+
+activate() {
+  local id tag pos
+  id=$(focused_id)
+  [[ -z $id ]] && return 0
+  tag=${Z_TAG[${ZIX[$CUR|$id]}]}
+  if [[ $tag == nav || $tag == select ]]; then
+    pos=$(nav_item_at "$id" "${SEL[$CUR|$id]:-0}")
+    if (( pos < 0 )); then
+      return 0
+    fi
+    dispatch_action "$id" \
+      "${N_EACT[$pos]}" "${N_ETGT[$pos]}" "${N_EFILE[$pos]}" "${N_ENAME[$pos]}" \
+      "${N_EHREF[$pos]}" "${N_ERUN[$pos]}" "${N_EOUT[$pos]}" "${N_EVALUE[$pos]}"
+  else
+    dispatch_action "$id" \
+      "${PROP[$CUR|$id|enter.action]:-}" \
+      "${PROP[$CUR|$id|enter.target]:-}" \
+      "${PROP[$CUR|$id|enter.file]:-}" \
+      "${PROP[$CUR|$id|enter.name]:-}" \
+      "${PROP[$CUR|$id|enter.href]:-}" \
+      "${PROP[$CUR|$id|enter.run]:-}" \
+      "${PROP[$CUR|$id|enter.output]:-}" \
+      "${PROP[$CUR|$id|enter.value]:-}"
+  fi
 }
 
 run_command() {
   local id=$1 title run out tmp pid frame=0 key rest code
-  title=${PROP[$CUR|$id|title]}
+  title=${PROP[$CUR|$id|label]:-}
   run=${PROP[$CUR|$id|run]}
   out=${PROP[$CUR|$id|output]:-}
   tmp=$(mktemp)
