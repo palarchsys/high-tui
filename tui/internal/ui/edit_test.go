@@ -37,17 +37,88 @@ func TestShiftEnterWithoutEnhancements(t *testing.T) {
 	a := editApp(t)
 	a.keyMode = keysPlain
 	a.onKey(keyMsg("enter"))
+	if a.status != noShiftMsg {
+		t.Fatal(a.status)
+	}
 	a.edit.state.Cursor = 1
 	a.onKey(keyMsg("shift+enter"))
-	if a.edit.state.Text != "ab" {
-		t.Fatal(a.edit.state.Text)
+	if a.edit == nil || a.edit.state.Text != "a\nb" {
+		t.Fatal(a.edit)
 	}
-	if a.status != noShiftMsg {
+	if a.status == noShiftMsg {
 		t.Fatal(a.status)
 	}
 	a.onKey(keyMsg("enter"))
 	if a.edit != nil {
 		t.Fatal("entrée doit fermer")
+	}
+	if a.val[key("main", "corps")] != "a\nb" {
+		t.Fatal(a.val[key("main", "corps")])
+	}
+}
+
+func TestShiftEnterAfterOtherKeys(t *testing.T) {
+	a := editApp(t)
+	a.onKey(keyMsg("left"))
+	if a.keyMode != keysPlain {
+		t.Fatal(a.keyMode)
+	}
+	a.onKey(keyMsg("enter"))
+	a.edit.state.Cursor = 1
+	a.onKey(keyMsg("shift+enter"))
+	if a.edit == nil || a.edit.state.Text != "a\nb" {
+		t.Fatal(a.edit)
+	}
+}
+
+func TestEnterClosesWithoutNewline(t *testing.T) {
+	a := editApp(t)
+	a.keyMode = keysEnhanced
+	a.onKey(keyMsg("enter"))
+	a.edit.state.Cursor = 1
+	a.onKey(keyMsg("enter"))
+	if a.edit != nil {
+		t.Fatal("entrée n'a pas fermé")
+	}
+	if a.val[key("main", "corps")] != "ab" {
+		t.Fatal(a.val[key("main", "corps")])
+	}
+}
+
+func TestQuitIsCtrlQ(t *testing.T) {
+	a := editApp(t)
+	if cmd := a.onKey(keyMsg("q")); cmd != nil {
+		t.Fatal("q quitte")
+	}
+	a.onKey(keyMsg("enter"))
+	a.onKey(keyMsg("q"))
+	if a.edit == nil || a.edit.state.Text != "abq" {
+		t.Fatal(a.edit)
+	}
+	cmd := a.onKey(tea.KeyPressMsg{Code: 'q', Text: "q", Mod: tea.ModCtrl})
+	if cmd == nil {
+		t.Fatal("ctrl+q ignoré")
+	}
+	if _, ok := cmd().(tea.QuitMsg); !ok {
+		t.Fatal("pas une sortie")
+	}
+	b := editApp(t)
+	b.running = true
+	if cmd := b.onKey(keyMsg("q")); cmd != nil {
+		t.Fatal("q quitte pendant une commande")
+	}
+	if !b.running {
+		t.Fatal("q a annulé la commande")
+	}
+	cmd = b.onKey(tea.KeyPressMsg{Code: 'q', Mod: tea.ModCtrl})
+	if cmd == nil {
+		t.Fatal("ctrl+q ignoré pendant une commande")
+	}
+	if _, ok := cmd().(tea.QuitMsg); !ok {
+		t.Fatal("pas une sortie")
+	}
+	if b.running {
+		t.Fatal("la commande court encore")
 	}
 }
 
@@ -76,11 +147,72 @@ func TestScreenWords(t *testing.T) {
 			t.Fatalf("manque %s", word)
 		}
 	}
+	title := stylePrefix(t, "#ffa657", true)
+	plainTitle := stylePrefix(t, "#ffa657", false)
+	body := stylePrefix(t, "#e6edf3", false)
 	for _, line := range strings.Split(frame, "\n") {
 		if lipgloss.Width(line) != 80 {
 			t.Fatalf("largeur %d pour %q", lipgloss.Width(line), line)
 		}
+		if strings.Contains(line, "Rubriques") && !strings.Contains(line, title) {
+			t.Fatal("titre de liste sans couleur")
+		}
+		if strings.Contains(line, "high-tui") && !strings.Contains(line, plainTitle) {
+			t.Fatal("titre de fenêtre sans couleur")
+		}
+		if strings.Contains(line, "Jeton pro") && strings.Contains(line, title) {
+			t.Fatal("ligne d'item colorée comme un titre")
+		}
+		if strings.Contains(line, "127.0.0.1") && strings.Contains(line, title) {
+			t.Fatal("valeur colorée comme un titre")
+		}
+		if strings.Contains(line, "Rubriques") && !strings.HasPrefix(visible(line), " ") {
+			t.Fatal("marge gauche absente")
+		}
+		if strings.Contains(line, "Jeton pro") && !strings.Contains(line, body) {
+			t.Fatal("couleur du texte absente")
+		}
 	}
+}
+
+func stylePrefix(t *testing.T, fg string, bold bool) string {
+	t.Helper()
+	s := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(fg)).
+		Background(lipgloss.Color("#161b22")).
+		Inline(true)
+	if bold {
+		s = s.Bold(true)
+	}
+	out := s.Render("X")
+	i := strings.Index(out, "X")
+	if i < 1 {
+		t.Fatal(out)
+	}
+	return out[:i]
+}
+
+func visible(s string) string {
+	var b strings.Builder
+	for i := 0; i < len(s); {
+		if s[i] == 0x1b {
+			j := i + 1
+			if j < len(s) && s[j] == '[' {
+				j++
+				for j < len(s) && ((s[j] >= '0' && s[j] <= '9') || s[j] == ';') {
+					j++
+				}
+				if j < len(s) {
+					j++
+				}
+				i = j
+				continue
+			}
+		}
+		b.WriteByte(s[i])
+		i++
+	}
+	return b.String()
 }
 
 func TestSetWritesTempFile(t *testing.T) {

@@ -27,15 +27,15 @@ type Action struct {
 
 // Style is a resolved box style. Zero values mean the feature is off.
 type Style struct {
-	Color, Background, BorderColor string
-	BorderWidth                    int
-	Radius                         int
-	LineHeight                     int
-	Gap                            int
-	MaxWidth                       int
-	Bold                           bool
-	Pad                            [4]int // top, right, bottom, left
-	Mar                            [4]int
+	Color, TitleColor, Background, BorderColor string
+	BorderWidth                                int
+	Radius                                     int
+	LineHeight                                 int
+	Gap                                        int
+	MaxWidth                                   int
+	Bold                                       bool
+	Pad                                        [4]int // top, right, bottom, left
+	Mar                                        [4]int
 }
 
 // Item is one row of a nav or a select.
