@@ -1,14 +1,14 @@
 {
   "id": "notes",
   "tag": "window",
-  "title": "Notes",
+  "label": "Notes",
   "rows": [
     {
       "id": "entete-notes",
       "tag": "header",
       "lines": 1,
       "columns": [
-        { "id": "titre-notes", "tag": "header", "fr": 1, "text": "Notes" }
+        { "id": "titre-notes", "tag": "header", "fr": 1, "label": "Notes" }
       ]
     },
     {
@@ -18,16 +18,18 @@
       "columns": [
         {
           "id": "nav-notes",
-          "tag": "nav",
+          "tag": "select",
           "fr": 1,
-          "title": "Notes",
+          "label": "Notes",
           "items": [
             {
               "id": "item-brouillon",
-              "title": "Brouillon",
-              "action": "load",
-              "target": "corps",
-              "file": "samples/brouillon.txt"
+              "label": "Brouillon",
+              "focus": {
+                "action": "load",
+                "target": "corps",
+                "file": "samples/brouillon.txt"
+              }
             }
           ]
         }

@@ -2,6 +2,7 @@
 """Read theme.css and the window JSON files, then write layout.tsv."""
 
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -22,7 +23,13 @@ KNOWN = {
     "line-height",
     "font-weight",
 }
-TAGS = {"window", "header", "nav", "input", "textarea", "button", "command", "status", "main"}
+TAGS = {"window", "header", "nav", "select", "input", "textarea", "button", "command", "status", "main"}
+ACTIONS = {"load", "edit", "window", "return", "save", "refresh", "run", "set"}
+ACTION_KEYS = {"action", "target", "file", "name", "href", "run", "output", "value"}
+COL_KEYS = {"id", "tag", "fr", "label", "class", "file", "name", "save", "readonly", "focus", "enter", "items"}
+ITEM_KEYS = {"id", "label", "value", "focus", "enter"}
+WIN_KEYS = {"id", "tag", "label", "class", "rows"}
+ROW_KEYS = {"id", "tag", "class", "lines", "columns"}
 
 
 def die(msg):
@@ -306,28 +313,179 @@ def load_json(path):
     return data
 
 
+def empty_action():
+    return {
+        "action": "",
+        "target": "",
+        "file": "",
+        "name": "",
+        "href": "",
+        "run": "",
+        "output": "",
+        "value": "",
+    }
+
+
+def reject_unknown(obj, allowed, where):
+    if not isinstance(obj, dict):
+        die(f"objet attendu ({where})")
+    for key in obj:
+        if key in allowed:
+            continue
+        if key in ("title", "text"):
+            die(f"utilisez « label » à la place de « {key} » ({where})")
+        if key == "action":
+            die(f"utilisez « focus » ou « enter » à la place de « action » ({where})")
+        die(f"attribut inconnu « {key} » ({where})")
+
+
+def class_list(raw, where):
+    classes = raw.get("class", "")
+    if isinstance(classes, str):
+        return [classes] if classes else []
+    if isinstance(classes, list) and all(isinstance(item, str) for item in classes):
+        return classes
+    die(f"classe invalide ({where})")
+
+
+def parse_action(raw, where):
+    if raw is None:
+        return empty_action()
+    reject_unknown(raw, ACTION_KEYS, where)
+    action = str(raw.get("action", ""))
+    act = empty_action()
+    act["action"] = action
+    for key in ("target", "file", "name", "href", "run", "output", "value"):
+        if key in raw and raw[key] is not None:
+            act[key] = str(raw[key])
+            if "\t" in act[key] or "\n" in act[key]:
+                die(f"valeur illégale « {key} » ({where})")
+    if not action:
+        return act
+    if action not in ACTIONS:
+        die(f"action inconnue « {action} » ({where})")
+    if action == "load":
+        if not act["target"]:
+            die(f"cible manquante ({where})")
+        if not act["file"]:
+            die(f"fichier manquant ({where})")
+        if not (ROOT / act["file"]).is_file():
+            die(f"fichier introuvable : {act['file']}")
+    elif action == "edit":
+        if not act["target"]:
+            die(f"cible manquante ({where})")
+    elif action == "window":
+        if not act["href"]:
+            die(f"href manquant ({where})")
+    elif action == "run":
+        if not act["run"]:
+            die(f"commande manquante ({where})")
+    return act
+
+
+def finish_set(act, fallback, where):
+    if act["action"] != "set":
+        return act
+    if not act["value"]:
+        act["value"] = fallback
+    if not act["file"]:
+        die(f"fichier manquant ({where})")
+    if not (ROOT / act["file"]).is_file():
+        die(f"fichier introuvable : {act['file']}")
+    if not act["name"]:
+        die(f"variable manquante ({where})")
+    if not act["value"]:
+        die(f"valeur manquante ({where})")
+    if "\t" in act["value"] or "\n" in act["value"]:
+        die(f"valeur illégale ({where})")
+    return act
+
+
+def edit_self(col_id):
+    act = empty_action()
+    act["action"] = "edit"
+    act["target"] = col_id
+    return act
+
+
+def parse_item(raw, ids, col_id):
+    reject_unknown(raw, ITEM_KEYS, col_id)
+    iid = str(need(raw, "id", col_id))
+    if iid in ids:
+        die(f"identifiant en double : {iid}")
+    ids.add(iid)
+    if "label" not in raw:
+        die(f"label manquant ({iid})")
+    label = str(raw["label"])
+    value = str(raw.get("value", ""))
+    if label == "" or "\t" in label or "\n" in label:
+        die(f"label illégal ({iid})")
+    if "\t" in value or "\n" in value:
+        die(f"valeur illégale ({iid})")
+    return {
+        "id": iid,
+        "label": label,
+        "value": value,
+        "focus": finish_set(parse_action(raw.get("focus"), iid), value, iid),
+        "enter": finish_set(parse_action(raw.get("enter"), iid), value, iid),
+    }
+
+
 def ensure_return(columns, ids, where):
-    navs = [col for col in columns if col["tag"] == "nav"]
-    for nav in navs:
-        for item in nav["items"]:
-            if item["action"] == "return":
+    lists = [col for col in columns if col["tag"] in ("nav", "select")]
+    for col in lists:
+        for item in col["items"]:
+            if item["focus"]["action"] == "return" or item["enter"]["action"] == "return":
                 return
-    if not navs:
-        die(f"aucune navigation pour placer Retour ({where})")
-    nav = navs[0]
+    if not lists:
+        die(f"aucune liste pour placer Retour ({where})")
+    nav = lists[0]
     item_id = f"{nav['id']}-retour"
     while item_id in ids:
         item_id += "-r"
     ids.add(item_id)
     nav["items"].append({
         "id": item_id,
-        "title": "Retour",
-        "action": "return",
-        "target": "",
-        "file": "",
-        "name": "",
-        "href": "",
+        "label": "Retour",
+        "value": "",
+        "focus": empty_action(),
+        "enter": {**empty_action(), "action": "return"},
     })
+
+
+def check_targets(columns):
+    zones = {col["id"]: col for col in columns}
+    hrefs = []
+
+    def one(act):
+        action = act["action"]
+        if action in ("load", "edit"):
+            target = act["target"]
+            if target not in zones:
+                die(f"cible absente : {target}")
+            tag = zones[target]["tag"]
+            if tag not in ("input", "textarea"):
+                die(f"cible incompatible : {target}")
+            if action == "edit" and tag == "textarea" and zones[target]["readonly"]:
+                die(f"cible non éditable : {target}")
+        if action == "set" and act["target"]:
+            target = act["target"]
+            if target not in zones or zones[target]["tag"] not in ("input", "textarea"):
+                die(f"cible incompatible : {target}")
+        if action == "run" and act["output"]:
+            output = act["output"]
+            if output not in zones or zones[output]["tag"] != "textarea":
+                die(f"cible absente : {output}")
+        if action == "window":
+            hrefs.append(act["href"])
+
+    for col in columns:
+        one(col["focus"])
+        one(col["enter"])
+        for item in col["items"]:
+            one(item["focus"])
+            one(item["enter"])
+    return hrefs
 
 
 def parse_window(path, rules, windows, seen_paths):
@@ -337,21 +495,21 @@ def parse_window(path, rules, windows, seen_paths):
     seen_paths.add(path)
     data = load_json(path)
     where = path.name
+    reject_unknown(data, WIN_KEYS, where)
+    if str(need(data, "tag", where)) != "window":
+        die(f"balise window attendue ({where})")
     win_id = str(need(data, "id", where))
     if any(w["id"] == win_id for w in windows):
         die(f"identifiant de fenêtre en double : {win_id}")
     ids = {win_id}
-    classes = data.get("class", "")
-    if isinstance(classes, str):
-        classes = [classes] if classes else []
-    win_style = resolve(rules, "window", classes, win_id, False, {})
+    win_style = resolve(rules, "window", class_list(data, where), win_id, False, {})
     rows_out = []
-    hrefs = []
     raw_rows = need(data, "rows", where)
     if not isinstance(raw_rows, list) or not raw_rows:
         die(f"rows manquant ({where})")
     flat_columns = []
     for row in raw_rows:
+        reject_unknown(row, ROW_KEYS, where)
         row_id = str(need(row, "id", where))
         if row_id in ids:
             die(f"identifiant en double : {row_id}")
@@ -362,11 +520,9 @@ def parse_window(path, rules, windows, seen_paths):
         row_tag = str(need(row, "tag", row_id))
         if row_tag not in TAGS:
             die(f"balise inconnue « {row_tag} » ({row_id})")
-        row_classes = row.get("class", "")
-        if isinstance(row_classes, str):
-            row_classes = [row_classes] if row_classes else []
         columns = []
         for col in need(row, "columns", row_id):
+            reject_unknown(col, COL_KEYS, row_id)
             col_id = str(need(col, "id", row_id))
             if col_id in ids:
                 die(f"identifiant en double : {col_id}")
@@ -377,112 +533,86 @@ def parse_window(path, rules, windows, seen_paths):
             fr = col.get("fr", 1)
             if not isinstance(fr, int) or fr < 1:
                 die(f"fr invalide ({col_id})")
-            col_classes = col.get("class", "")
-            if isinstance(col_classes, str):
-                col_classes = [col_classes] if col_classes else []
             item = {
                 "id": col_id,
                 "tag": tag,
                 "fr": fr,
-                "classes": col_classes,
-                "text": str(col.get("text", "")),
-                "title": str(col.get("title", "")),
+                "classes": class_list(col, col_id),
+                "label": str(col.get("label", "")),
                 "file": str(col.get("file", "")),
                 "name": str(col.get("name", "")),
                 "save": str(col.get("save", "")),
-                "action": str(col.get("action", "")),
-                "run": str(col.get("run", "")),
-                "output": str(col.get("output", "")),
-                "readonly": col.get("readonly", True),
+                "run": "",
+                "output": "",
+                "readonly": True if "readonly" not in col else bool(col["readonly"]),
+                "focus": parse_action(col.get("focus"), col_id),
+                "enter": parse_action(col.get("enter"), col_id),
                 "items": [],
             }
-            if tag == "nav":
-                item["title"] = str(need(col, "title", col_id))
-                items = []
-                for raw in need(col, "items", col_id):
-                    iid = str(need(raw, "id", col_id))
-                    if iid in ids:
-                        die(f"identifiant en double : {iid}")
-                    ids.add(iid)
-                    action = str(need(raw, "action", iid))
-                    if action not in ("load", "window", "return"):
-                        die(f"action inconnue « {action} » ({iid})")
-                    one = {
-                        "id": iid,
-                        "title": str(need(raw, "title", iid)),
-                        "action": action,
-                        "target": str(raw.get("target", "")),
-                        "file": str(raw.get("file", "")),
-                        "name": str(raw.get("name", "")),
-                        "href": str(raw.get("href", "")),
-                    }
-                    if action == "load" and not one["target"]:
-                        die(f"cible manquante ({iid})")
-                    if action == "load" and not one["file"]:
-                        die(f"fichier manquant ({iid})")
-                    if action == "window" and not one["href"]:
-                        die(f"href manquant ({iid})")
-                    if action == "window":
-                        hrefs.append(one["href"])
-                    if one["file"] and not (ROOT / one["file"]).is_file():
-                        die(f"fichier introuvable : {one['file']}")
-                    if "\t" in one["title"] or "\n" in one["title"]:
-                        die(f"titre illégal ({iid})")
-                    items.append(one)
-                item["items"] = items
+            if "\t" in item["label"] or "\n" in item["label"]:
+                die(f"label illégal ({col_id})")
+            if tag in ("nav", "select"):
+                if "label" not in col or item["label"] == "":
+                    die(f"label manquant ({col_id})")
+                raw_items = need(col, "items", col_id)
+                if not isinstance(raw_items, list):
+                    die(f"liste invalide ({col_id})")
+                item["items"] = [parse_item(raw, ids, col_id) for raw in raw_items]
+            elif "items" in col:
+                die(f"attribut items refusé ({col_id})")
             if tag == "input":
-                need(col, "file", col_id)
-                need(col, "name", col_id)
-                item["file"] = str(col["file"])
-                item["name"] = str(col["name"])
+                item["file"] = str(need(col, "file", col_id))
+                item["name"] = str(need(col, "name", col_id))
                 item["save"] = str(need(col, "save", col_id))
                 if item["save"] not in ("enter", "button"):
                     die(f"save invalide ({col_id})")
+                if not item["enter"]["action"]:
+                    item["enter"] = edit_self(col_id)
             if tag == "textarea":
                 item["file"] = str(need(col, "file", col_id))
                 if "readonly" not in col:
                     die(f"attribut manquant « readonly » ({col_id})")
                 item["readonly"] = bool(col["readonly"])
                 item["save"] = str(col.get("save", "button"))
+                if item["save"] not in ("enter", "button"):
+                    die(f"save invalide ({col_id})")
+                if not item["readonly"] and not item["enter"]["action"]:
+                    item["enter"] = edit_self(col_id)
             if tag == "button":
-                item["action"] = str(need(col, "action", col_id))
-                item["text"] = str(need(col, "text", col_id))
-                if item["action"] not in ("save", "refresh"):
+                if "label" not in col or item["label"] == "":
+                    die(f"label manquant ({col_id})")
+                if not item["enter"]["action"]:
+                    die(f"action manquante ({col_id})")
+                if item["enter"]["action"] not in ("save", "refresh"):
                     die(f"action de bouton inconnue ({col_id})")
             if tag == "command":
-                item["title"] = str(need(col, "title", col_id))
-                item["run"] = str(need(col, "run", col_id))
-                if "\t" in item["run"] or "\n" in item["run"]:
-                    die(f"commande illégale ({col_id})")
-                item["output"] = str(col.get("output", ""))
-            if tag == "header" and "text" not in col and not item["text"]:
-                die(f"texte manquant ({col_id})")
+                if "label" not in col or item["label"] == "":
+                    die(f"label manquant ({col_id})")
+                if item["enter"]["action"] != "run":
+                    die(f"commande manquante ({col_id})")
+                item["run"] = item["enter"]["run"]
+                item["output"] = item["enter"]["output"]
+            if tag == "header" and ("label" not in col or item["label"] == ""):
+                die(f"label manquant ({col_id})")
+            item["focus"] = finish_set(item["focus"], "", col_id)
+            item["enter"] = finish_set(item["enter"], "", col_id)
             columns.append(item)
             flat_columns.append(item)
         rows_out.append({
             "id": row_id,
             "tag": row_tag,
-            "classes": row_classes,
+            "classes": class_list(row, row_id),
             "lines": lines,
             "columns": columns,
         })
     ensure_return(flat_columns, ids, where)
     for col in flat_columns:
-        if col["tag"] != "nav":
-            continue
-        for item in col["items"]:
-            if item["action"] == "load" and item["target"] not in ids:
-                die(f"cible absente : {item['target']}")
-    for col in flat_columns:
-        if col["tag"] == "command" and col["output"] and col["output"] not in ids:
-            die(f"cible absente : {col['output']}")
-        if col["file"]:
-            file_path = ROOT / col["file"]
-            if not file_path.is_file():
-                die(f"fichier introuvable : {col['file']}")
+        if col["file"] and not (ROOT / col["file"]).is_file():
+            die(f"fichier introuvable : {col['file']}")
+    hrefs = check_targets(flat_columns)
     win = {
         "id": win_id,
-        "title": str(data.get("title", win_id)),
+        "title": str(data.get("label", win_id)),
         "file": path.name,
         "style": win_style,
         "rows": rows_out,
@@ -493,9 +623,18 @@ def parse_window(path, rules, windows, seen_paths):
         parse_window(path.parent / href, rules, windows, seen_paths)
 
 
+def fitted_width(css_max, where):
+    raw = (os.environ.get("COLUMNS") or "").strip()
+    if not raw:
+        return css_max
+    if not raw.isdigit() or int(raw) < 1:
+        die(f"COLUMNS invalide « {raw} » ({where})")
+    return min(css_max, int(raw))
+
+
 def place_window(win, rules):
     inherit = {"color": win["style"]["color"], "background": win["style"]["background"]}
-    max_w = win["style"]["max_w"]
+    max_w = fitted_width(win["style"]["max_w"], win["id"])
     pad = win["style"]["pad"]
     inner = max_w - pad[1] - pad[3] - win["style"]["bw"] * 2
     y = 0
@@ -578,29 +717,38 @@ def emit(windows, dest):
                     str(base["lh"]), str(gap),
                 ]))
                 props = {
-                    "text": col["text"],
-                    "title": col["title"],
+                    "label": col["label"],
                     "file": col["file"],
                     "name": col["name"],
                     "save": col["save"],
-                    "action": col["action"],
                     "run": col["run"],
                     "output": col["output"],
                     "readonly": "1" if col["readonly"] else "0",
                 }
+                for prefix in ("focus", "enter"):
+                    act = col[prefix]
+                    if not act["action"]:
+                        continue
+                    for key in ("action", "target", "file", "name", "href", "run", "output", "value"):
+                        if act[key]:
+                            props[f"{prefix}.{key}"] = act[key]
                 for key, val in props.items():
                     if val == "":
                         continue
                     lines.append("\x1f".join(["P", win["id"], col["id"], key, val]))
-                if col["tag"] == "nav":
+                if col["tag"] in ("nav", "select"):
                     for item_index, item in enumerate(col["items"]):
-                        lines.append("\x1f".join([
-                            "N", win["id"], col["id"], str(item_index), item["id"], item["title"],
-                            item["action"], item["target"], item["file"], item["name"], item["href"],
-                        ]))
-                if col["tag"] in ("nav", "input", "button", "command") or (
-                    col["tag"] == "textarea" and not col["readonly"]
-                ):
+                        fields = [
+                            "N", win["id"], col["id"], str(item_index), item["id"], item["label"],
+                        ]
+                        for act in (item["focus"], item["enter"]):
+                            fields.extend([
+                                act["action"], act["target"], act["file"], act["name"],
+                                act["href"], act["run"], act["output"],
+                            ])
+                        fields.append(item["enter"]["value"])
+                        lines.append("\x1f".join(fields))
+                if col["tag"] in ("nav", "select", "input", "button", "command", "textarea"):
                     lines.append("\x1f".join(["F", win["id"], str(order), col["id"]]))
                     order += 1
     dest.write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -626,28 +774,43 @@ def self_test(windows):
     assert fr_widths(10, [1], 0) == [10]
     assert fr_widths(10, [1, 1, 2], 0) == [2, 2, 6]
     assert fr_widths(10, [1, 1, 2], 1) == [2, 2, 4]
+    raw = (os.environ.get("COLUMNS") or "").strip()
+    expected = 260
+    if raw.isdigit() and int(raw) > 0:
+        expected = min(260, int(raw))
     main = windows[0]
-    assert main["max_w"] == 260
+    assert main["max_w"] == expected
     header = main["rows"][0]
     assert len(header["placed"]) == 1
-    assert header["placed"][0]["outer_w"] == main["inner"] == 260
+    assert header["placed"][0]["outer_w"] == main["inner"] == expected
     nav_row = main["rows"][1]
     widths = [z["outer_w"] for z in nav_row["placed"]]
     gaps = 1 * (len(widths) - 1)
-    assert sum(widths) + gaps == 260, (widths, gaps)
+    assert sum(widths) + gaps == expected, (widths, gaps)
     assert widths[-1] >= widths[0]
     zone = nav_row["placed"][0]
     assert zone["own_h"] == 6, zone["own_h"]
     assert nav_row["y"] == 5, nav_row["y"]
-    titles = []
-    for row in main["rows"]:
-        for zone in row["placed"]:
-            if zone["col"]["tag"] == "nav":
-                titles.append(zone["col"]["title"])
-                actions = [item["action"] for item in zone["col"]["items"]]
-    assert "Retour" in [item["title"] for row in main["rows"] for z in row["placed"] if z["col"]["tag"] == "nav" for item in z["col"]["items"]]
+    labels = [z["col"]["label"] for z in nav_row["placed"]]
+    assert labels == ["Rubriques", "Fiches", "Champs", "Menu"], labels
+    champs = nav_row["placed"][2]["col"]
+    assert champs["tag"] == "select"
+    assert champs["items"][0]["focus"]["action"] == "load"
+    assert champs["items"][0]["focus"]["name"] == "NOM"
+    assert champs["items"][0]["enter"]["action"] == "edit"
+    assert champs["items"][0]["enter"]["target"] == "valeur-hote"
+    fiches = nav_row["placed"][1]["col"]
+    assert fiches["items"][0]["label"] == "Passage"
+    assert fiches["items"][0]["value"] == "127.0.0.1"
+    assert fiches["items"][0]["enter"]["action"] == "set"
+    assert fiches["items"][0]["enter"]["name"] == "HOTE"
+    apercu = main["rows"][2]["placed"][1]["col"]
+    assert apercu["id"] == "apercu" and apercu["readonly"] is False
+    back = [it for it in zone["col"]["items"] if it["label"] == "Retour"]
+    assert back and back[0]["enter"]["action"] == "return"
+    assert back[0]["focus"]["action"] == ""
     assert any(w["file"] == "notes.json" for w in windows)
-    print("self-test ok", titles)
+    print("self-test ok", labels)
 
 
 def main():
