@@ -15,31 +15,32 @@
         <table id="corps">
           <tr id="listes" data-lines="4">
             <td>
-              <nav id="nav-rubriques">
+              <nav id="nav-rubriques" data-items="samples/rubriques.json" data-next="nav-fiches">
                 <h2>Rubriques</h2>
                 <ul>
-                  <li id="item-reseau" data-focus="load" data-focus-target="valeur-hote" data-focus-file="samples/passage.env" data-focus-name="HOTE" data-enter="edit" data-enter-target="valeur-hote">Réseau</li>
-                  <li id="item-notes" data-enter="window" data-enter-href="notes.html">Notes</li>
+                  <li id="item-reseau">Réseau</li>
+                  <li id="item-notes">Notes</li>
+                  <li id="item-dossier">Dossier</li>
                 </ul>
               </nav>
             </td>
             <td>
-              <nav id="nav-fiches">
+              <nav id="nav-fiches" data-next="nav-champs" data-enter="set" data-enter-target="valeur-hote">
                 <h2>Fiches</h2>
                 <ul>
-                  <li id="item-passage" data-value="127.0.0.1" data-focus="load" data-focus-target="valeur-hote" data-focus-file="samples/passage.env" data-focus-name="HOTE" data-enter="set" data-enter-target="valeur-hote" data-enter-file="samples/passage.env" data-enter-name="HOTE" data-enter-value="127.0.0.1">Passage</li>
-                  <li id="item-archive" data-value="8080" data-focus="load" data-focus-target="valeur-hote" data-focus-file="samples/passage.env" data-focus-name="PORT" data-enter="set" data-enter-target="valeur-hote" data-enter-file="samples/passage.env" data-enter-name="PORT" data-enter-value="8080">Archive</li>
-                  <li id="fiche-jeton" data-label="samples/secrets.conf::HFU_PRO_JETON::label" data-value="samples/secrets.conf::HFU_PRO_JETON::value" data-focus="load" data-focus-target="valeur-hote" data-focus-file="samples/passage.env" data-focus-name="HOTE" data-enter="set" data-enter-target="valeur-hote" data-enter-file="samples/passage.env" data-enter-name="HOTE" data-enter-value="samples/secrets.conf::HFU_PRO_JETON::value">Jeton pro</li>
+                  <li id="item-passage">Passage</li>
+                  <li id="item-archive">Archive</li>
+                  <li id="fiche-jeton">Jeton pro</li>
                 </ul>
               </nav>
             </td>
             <td>
-              <nav id="nav-champs">
+              <nav id="nav-champs" data-focus="load" data-focus-target="valeur-hote" data-enter="edit" data-enter-target="valeur-hote">
                 <h2>Champs</h2>
                 <ul>
-                  <li id="item-nom" data-focus="load" data-focus-target="valeur-hote" data-focus-file="samples/passage.env" data-focus-name="NOM" data-enter="edit" data-enter-target="valeur-hote">Nom</li>
-                  <li id="item-hote" data-focus="load" data-focus-target="valeur-hote" data-focus-file="samples/passage.env" data-focus-name="HOTE" data-enter="edit" data-enter-target="valeur-hote">Hôte</li>
-                  <li id="item-port" data-focus="load" data-focus-target="valeur-hote" data-focus-file="samples/passage.env" data-focus-name="PORT" data-enter="edit" data-enter-target="valeur-hote">Port</li>
+                  <li id="item-nom">Nom</li>
+                  <li id="item-hote">Hôte</li>
+                  <li id="item-port">Port</li>
                 </ul>
               </nav>
             </td>

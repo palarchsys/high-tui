@@ -105,3 +105,54 @@ func TestRowTagRefused(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestDynamicNav(t *testing.T) {
+	raw := doc(`<table id="w"><tr>
+<td><nav id="un" data-items="samples/rubriques.json" data-next="deux"><h2>Un</h2><ul><li id="a">A</li></ul></nav></td>
+<td><nav id="deux" data-focus="load" data-focus-target="val" data-enter="set" data-enter-target="val"><h2>Deux</h2><ul><li id="b">B</li></ul></nav></td>
+<td><input id="val" value="x"></td>
+</tr></table>`)
+	tree, err := Parse(raw, "t.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	win, err := Window(tree, "t.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	un := win.Grid.Rows[0].Cells[0].Zone
+	deux := win.Grid.Rows[0].Cells[1].Zone
+	if un.ItemsFrom != "samples/rubriques.json" || un.NextNav != "deux" {
+		t.Fatalf("%#v", un)
+	}
+	if deux.Focus.Kind != "load" || deux.Focus.File != "" || deux.Enter.Kind != "set" || deux.Enter.Value != "" {
+		t.Fatalf("%#v", deux.Focus)
+	}
+}
+
+func TestNextNavMissing(t *testing.T) {
+	raw := doc(`<table id="w"><tr><td><nav id="un" data-next="absent"><h2>Un</h2><ul><li id="a">A</li></ul></nav></td></tr></table>`)
+	tree, err := Parse(raw, "t.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = Window(tree, "t.html")
+	if err == nil || !strings.Contains(err.Error(), "cible absente") {
+		t.Fatal(err)
+	}
+}
+
+func TestListCycle(t *testing.T) {
+	raw := doc(`<table id="w"><tr>
+<td><nav id="un" data-next="deux"><h2>Un</h2><ul><li id="a">A</li></ul></nav></td>
+<td><nav id="deux" data-next="un"><h2>Deux</h2><ul><li id="b">B</li></ul></nav></td>
+</tr></table>`)
+	tree, err := Parse(raw, "t.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = Window(tree, "t.html")
+	if err == nil || !strings.Contains(err.Error(), "cycle de listes") {
+		t.Fatal(err)
+	}
+}

@@ -91,7 +91,7 @@ func writeZone(b *strings.Builder, zone model.Zone) {
 	b.WriteString("model.Zone{\n")
 	fmt.Fprintf(b, "\t\t\t\t\t\t\tTag: %s, ID: %s, Label: %s, Value: %s,\n", q(zone.Tag), q(zone.ID), q(zone.Label), q(zone.Value))
 	fmt.Fprintf(b, "\t\t\t\t\t\t\tFile: %s, Name: %s, Save: %s, Href: %s, Run: %s, Output: %s,\n", q(zone.File), q(zone.Name), q(zone.Save), q(zone.Href), q(zone.Run), q(zone.Output))
-	fmt.Fprintf(b, "\t\t\t\t\t\t\tReadonly: %t,\n", zone.Readonly)
+	fmt.Fprintf(b, "\t\t\t\t\t\t\tReadonly: %t, ItemsFrom: %s, NextNav: %s,\n", zone.Readonly, q(zone.ItemsFrom), q(zone.NextNav))
 	writeStrings(b, "Classes", zone.Classes, 7)
 	b.WriteString("\t\t\t\t\t\t\tFocus: ")
 	writeAction(b, zone.Focus)

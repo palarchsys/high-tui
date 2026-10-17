@@ -6,6 +6,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"high-tui/internal/items"
 	"high-tui/internal/model"
 )
 
@@ -25,6 +26,7 @@ var attrs = map[string]bool{
 	"data-enter": true, "data-enter-target": true, "data-enter-file": true,
 	"data-enter-name": true, "data-enter-href": true, "data-enter-run": true,
 	"data-enter-output": true, "data-enter-value": true,
+	"data-items": true, "data-next": true,
 }
 
 var zoneTags = map[string]bool{
@@ -275,7 +277,7 @@ func positive(raw, where string) (int, error) {
 	return n, nil
 }
 
-func actionOf(attr map[string]string, prefix, where string) (model.Action, error) {
+func actionOf(attr map[string]string, prefix, where string, loose bool) (model.Action, error) {
 	kind := attr[prefix]
 	act := model.Action{
 		Kind:   kind,
@@ -301,7 +303,7 @@ func actionOf(attr map[string]string, prefix, where string) (model.Action, error
 		if act.Target == "" {
 			return act, model.Errf("cible manquante (%s)", where)
 		}
-		if act.File == "" {
+		if act.File == "" && !loose {
 			return act, model.Errf("fichier manquant (%s)", where)
 		}
 	case "edit":
@@ -317,6 +319,9 @@ func actionOf(attr map[string]string, prefix, where string) (model.Action, error
 			return act, model.Errf("commande manquante (%s)", where)
 		}
 	case "set":
+		if loose {
+			break
+		}
 		if act.File == "" {
 			return act, model.Errf("fichier manquant (%s)", where)
 		}
@@ -606,11 +611,12 @@ func convertZone(node Node, ids map[string]bool) (model.Zone, error) {
 		return model.Zone{}, err
 	}
 	classes := classesOf(take(attr, "class"))
-	focus, err := actionOf(attr, "data-focus", id)
+	loose := node.Tag == "nav"
+	focus, err := actionOf(attr, "data-focus", id, loose)
 	if err != nil {
 		return model.Zone{}, err
 	}
-	enter, err := actionOf(attr, "data-enter", id)
+	enter, err := actionOf(attr, "data-enter", id, loose)
 	if err != nil {
 		return model.Zone{}, err
 	}
@@ -642,6 +648,11 @@ func convertZone(node Node, ids map[string]bool) (model.Zone, error) {
 		}
 		zone.Label = h.Text
 	case "nav":
+		zone.ItemsFrom = take(attr, "data-items")
+		zone.NextNav = take(attr, "data-next")
+		if err := checkItemsFrom(zone.ItemsFrom, id); err != nil {
+			return model.Zone{}, err
+		}
 		if err := leftover(attr, id); err != nil {
 			return model.Zone{}, err
 		}
@@ -787,11 +798,11 @@ func convertItem(node Node, ids map[string]bool) (model.Item, error) {
 		return model.Item{}, err
 	}
 	_ = take(attr, "class")
-	focus, err := actionOf(attr, "data-focus", id)
+	focus, err := actionOf(attr, "data-focus", id, false)
 	if err != nil {
 		return model.Item{}, err
 	}
-	enter, err := actionOf(attr, "data-enter", id)
+	enter, err := actionOf(attr, "data-enter", id, false)
 	if err != nil {
 		return model.Item{}, err
 	}
@@ -878,6 +889,12 @@ func checkTargets(win *model.Window) error {
 		return nil
 	}
 	for _, zone := range zonesOf(win) {
+		if zone.NextNav != "" {
+			target, ok := byID[zone.NextNav]
+			if !ok || target.Tag != "nav" {
+				return model.Errf("cible absente : %s", zone.NextNav)
+			}
+		}
 		if err := one(zone.Focus); err != nil {
 			return err
 		}
@@ -891,6 +908,39 @@ func checkTargets(win *model.Window) error {
 			if err := one(item.Enter); err != nil {
 				return err
 			}
+		}
+	}
+	return listCycles(win)
+}
+
+func checkItemsFrom(source, id string) error {
+	if source == "" {
+		return nil
+	}
+	return items.CheckSource(source, id)
+}
+
+func listCycles(win *model.Window) error {
+	byID := map[string]model.Zone{}
+	for _, zone := range zonesOf(win) {
+		byID[zone.ID] = *zone
+	}
+	for id, zone := range byID {
+		if zone.NextNav == "" {
+			continue
+		}
+		seen := map[string]bool{}
+		cur := id
+		for cur != "" {
+			if seen[cur] {
+				return model.Errf("cycle de listes (%s)", id)
+			}
+			seen[cur] = true
+			next, ok := byID[cur]
+			if !ok {
+				break
+			}
+			cur = next.NextNav
 		}
 	}
 	return nil

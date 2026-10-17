@@ -70,6 +70,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.app.status = "Terminé " + itoa(msg.code)
 		return m, nil
+	case listSpin:
+		if msg.gen != m.app.listGen || m.app.listCancel == nil {
+			return m, nil
+		}
+		m.app.spin = (m.app.spin + 1) % len(spinFrames)
+		m.app.status = spinFrames[m.app.spin] + " En cours : " + m.app.listLabel
+		return m, listSpinCmd(msg.gen)
+	case listDone:
+		m.app.onListDone(msg)
+		return m, nil
 	case tea.KeyPressMsg:
 		return m, m.app.onKey(msg)
 	default:
@@ -121,13 +131,21 @@ func (a *app) onKey(msg tea.KeyPressMsg) tea.Cmd {
 	}
 	switch name {
 	case "left":
-		_ = a.moveFocus(-1)
+		if err := a.moveFocus(-1); err != nil {
+			a.status = err.Error()
+		}
 	case "right":
-		_ = a.moveFocus(1)
+		if err := a.moveFocus(1); err != nil {
+			a.status = err.Error()
+		}
 	case "up":
-		_ = a.moveVertical(-1)
+		if err := a.moveVertical(-1); err != nil {
+			a.status = err.Error()
+		}
 	case "down":
-		_ = a.moveVertical(1)
+		if err := a.moveVertical(1); err != nil {
+			a.status = err.Error()
+		}
 	case "enter":
 		act, _ := a.action("enter")
 		cmd, err := a.perform(act)
@@ -136,6 +154,11 @@ func (a *app) onKey(msg tea.KeyPressMsg) tea.Cmd {
 		}
 		return cmd
 	case "esc":
+		if a.listCancel != nil {
+			a.stopList()
+			a.status = "Annulé"
+			return nil
+		}
 		if err := a.goBack(); err != nil {
 			a.status = err.Error()
 		}

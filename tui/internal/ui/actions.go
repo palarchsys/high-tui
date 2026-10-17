@@ -39,12 +39,21 @@ func (a *app) applyFocus() error {
 		return nil
 	}
 	a.focusMark = mark
+	a.stopList()
+	var extra tea.Cmd
+	if box.Zone.Tag == "nav" && box.Zone.NextNav != "" {
+		var err error
+		extra, err = a.follow(box.Zone)
+		if err != nil {
+			return err
+		}
+	}
 	act, _ := a.action("focus")
 	cmd, err := a.perform(act)
 	if err != nil {
 		return err
 	}
-	a.pending = cmd
+	a.pending = tea.Batch(extra, cmd)
 	return nil
 }
 
@@ -60,10 +69,19 @@ func (a *app) action(which string) (model.Action, string) {
 			return model.Action{}, zone.Label
 		}
 		item := zone.Items[sel]
+		var act model.Action
 		if which == "focus" {
-			return item.Focus, item.Label
+			act = item.Focus
+			if act.Kind == "" {
+				act = zone.Focus
+			}
+		} else {
+			act = item.Enter
+			if act.Kind == "" {
+				act = zone.Enter
+			}
 		}
-		return item.Enter, item.Label
+		return fillAction(act, item), item.Label
 	}
 	if which == "focus" {
 		return zone.Focus, zone.Label
@@ -203,6 +221,9 @@ func (a *app) set(act model.Action) error {
 	if act.Name == "" {
 		return model.Errf("variable manquante")
 	}
+	if act.Value == "" {
+		return model.Errf("valeur manquante")
+	}
 	if err := run.WriteVar(run.Path(a.root, act.File), act.Name, act.Value); err != nil {
 		return err
 	}
@@ -296,11 +317,19 @@ func (a *app) refresh() error {
 			return readErr
 		}
 	}
+	if err := a.loadDeclaredItems(); err != nil {
+		return err
+	}
+	if err := a.layoutAll(); err != nil {
+		return err
+	}
 	a.focusMark = ""
 	if err := a.applyFocus(); err != nil {
 		return err
 	}
-	a.status = "Rechargé"
+	if a.listCancel == nil && !strings.HasPrefix(a.status, "erreur :") {
+		a.status = "Rechargé"
+	}
 	return nil
 }
 

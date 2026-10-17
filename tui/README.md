@@ -60,6 +60,8 @@ Les attributs de l'application sont des `data-*`. Un attribut absent ne déclenc
 | `name`, `data-name` | vide, aucune variable |
 | `data-save` | pas d'écriture automatique. Présent : `enter` ou `button` |
 | `readonly` | faux. Présent, l'édition est refusée |
+| `data-items` | les `li` du HTML. Présent : fichier ou `cmd:…`, les `li` ne sont qu'un aperçu |
+| `data-next` | le focus ne remplit pas une autre liste |
 | `data-focus` | vide, aucune action au focus |
 | `data-enter` | vide, Entrée ne fait rien |
 | `data-label`, `data-value` | le texte visible |
@@ -87,6 +89,25 @@ Exemple :
 <li id="item-reseau" data-focus="load" data-focus-target="valeur-hote"
     data-focus-file="samples/passage.env" data-focus-name="HOTE"
     data-enter="edit" data-enter-target="valeur-hote">Réseau</li>
+```
+
+## Listes dynamiques
+
+`data-items` sur une `nav` charge ses lignes au lancement. `data-next` nomme la `nav` qui reçoit la liste suivante. Au focus d'une ligne, cette nav est remplacée, sa sélection revient au début, et les nav suivantes de la chaîne sont vidées. Le focus reste sur la ligne qui a chargé.
+
+La source est un tableau JSON, ou un objet JSON par ligne. Une commande s'écrit `cmd:` suivi de la commande, sans trou pour une valeur. Le fichier et la commande impriment la même forme.
+
+| Champ | Rôle |
+| --- | --- |
+| `label` | Texte affiché. Obligatoire |
+| `value`, `file`, `name` | Complètent l'action de la nav quand son fichier, son nom ou sa valeur est vide |
+| `next` | Chemin, `cmd:…`, ou tableau de lignes |
+| `focus`, `enter` | Action facultative, qui remplace celle de la nav. Champs : `kind`, `target`, `file`, `name`, `href`, `run`, `output`, `value` |
+
+Un fichier est lu tout de suite. Une commande lancée par le focus passe par l'anneau d'attente. Échap l'annule. Un résultat en retard est ignoré. `refresh` relit `data-items` et rejoue le `next` de la ligne focalisée. Une source absente, un JSON illisible ou un libellé manquant s'affiche dans le statut et laisse la nav cible vide.
+
+```json
+{"label": "Réseau", "next": [{"label": "Passage", "file": "samples/passage.env", "name": "HOTE", "value": "127.0.0.1"}]}
 ```
 
 ## Références de variables
