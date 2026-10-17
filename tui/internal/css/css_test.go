@@ -38,6 +38,42 @@ nav:focus { border-color: #58a6ff; font-weight: bold; }
 	}
 }
 
+func TestTitleColorStaysOnFocus(t *testing.T) {
+	rules, err := Parse(`
+window { color: #e6edf3; background: #0d1117; }
+nav, header, input { title-color: #ffa657; }
+nav:focus { border-color: #58a6ff; font-weight: bold; }
+`, "main.css")
+	if err != nil {
+		t.Fatal(err)
+	}
+	inherit, err := Resolve(rules, "window", nil, "main", false, Blank())
+	if err != nil {
+		t.Fatal(err)
+	}
+	base, err := Resolve(rules, "nav", nil, "nav-rubriques", false, inherit)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if base.TitleColor != "#ffa657" {
+		t.Fatal(base.TitleColor)
+	}
+	focus, err := Resolve(rules, "nav", nil, "nav-rubriques", true, inherit)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if focus.TitleColor != "#ffa657" || focus.BorderColor != "#58a6ff" {
+		t.Fatalf("focus %#v", focus)
+	}
+	area, err := Resolve(rules, "textarea", nil, "corps", false, inherit)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if area.TitleColor != "" {
+		t.Fatal(area.TitleColor)
+	}
+}
+
 func contains(s, part string) bool {
 	return len(s) >= len(part) && (s == part || len(part) == 0 || indexOf(s, part) >= 0)
 }

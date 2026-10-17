@@ -444,10 +444,6 @@ func (a *app) editKey(keyName string) tea.Cmd {
 	if a.edit == nil {
 		return nil
 	}
-	if keyName == "shift+enter" && a.keyMode != keysEnhanced {
-		a.status = noShiftMsg
-		return nil
-	}
 	next, result := run.ApplyEdit(a.edit.state, keyName, a.edit.multiline)
 	a.edit.state = next
 	a.reveal()

@@ -13,7 +13,7 @@ var known = map[string]bool{
 	"color": true, "background": true, "background-color": true,
 	"border": true, "border-width": true, "border-style": true, "border-color": true,
 	"border-radius": true, "padding": true, "margin": true, "max-width": true,
-	"column-gap": true, "line-height": true, "font-weight": true,
+	"column-gap": true, "line-height": true, "font-weight": true, "title-color": true,
 }
 
 var tags = map[string]bool{
@@ -231,6 +231,8 @@ func applyDecl(style *model.Style, name, val, where string) error {
 	switch name {
 	case "color":
 		style.Color = val
+	case "title-color":
+		style.TitleColor = val
 	case "background", "background-color":
 		style.Background = val
 	case "border-color":

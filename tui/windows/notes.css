@@ -12,9 +12,13 @@ nav, select, textarea, input, button, command, header, status {
   border: 1ch solid #30363d;
   border-radius: 1ch;
   padding: 0 1ch;
-  margin: 1ch 0;
+  margin: 1ch;
   line-height: 1;
   column-gap: 1ch;
+}
+
+nav, select, header, input {
+  title-color: #ffa657;
 }
 
 nav:focus, select:focus, textarea:focus, input:focus, button:focus, command:focus {

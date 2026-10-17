@@ -94,12 +94,14 @@ func (a *app) onKey(msg tea.KeyPressMsg) tea.Cmd {
 		return func() tea.Msg { return tea.Quit() }
 	}
 	name := msg.String()
-	if a.keyMode == keysUnknown {
-		if name == "shift+enter" {
-			a.keyMode = keysEnhanced
-		} else {
-			a.keyMode = keysPlain
+	if shiftEnter(msg) {
+		name = "shift+enter"
+		a.keyMode = keysEnhanced
+		if a.status == noShiftMsg {
+			a.status = "Prêt"
 		}
+	} else if a.keyMode == keysUnknown {
+		a.keyMode = keysPlain
 	}
 	if a.running {
 		if name == "esc" {
@@ -112,8 +114,6 @@ func (a *app) onKey(msg tea.KeyPressMsg) tea.Cmd {
 		return a.editKey(name)
 	}
 	switch name {
-	case "q":
-		return func() tea.Msg { return tea.Quit() }
 	case "left":
 		_ = a.moveFocus(-1)
 	case "right":
@@ -139,11 +139,33 @@ func (a *app) onKey(msg tea.KeyPressMsg) tea.Cmd {
 }
 
 func quitKey(msg tea.KeyPressMsg) bool {
-	if msg.String() == "ctrl+c" || msg.String() == "\x03" {
+	if msg.String() == "ctrl+c" || msg.String() == "\x03" || msg.String() == "ctrl+q" {
+		return true
+	}
+	if msg.Keystroke() == "ctrl+c" || msg.Keystroke() == "ctrl+q" {
 		return true
 	}
 	k := msg.Key()
-	return k.Mod.Contains(tea.ModCtrl) && (k.Code == 'c' || k.Code == 'C')
+	if !k.Mod.Contains(tea.ModCtrl) {
+		return false
+	}
+	return k.Code == 'c' || k.Code == 'C' || k.Code == 'q' || k.Code == 'Q'
+}
+
+func shiftEnter(msg tea.KeyPressMsg) bool {
+	if msg.String() == "shift+enter" || msg.Keystroke() == "shift+enter" {
+		return true
+	}
+	k := msg.Key()
+	if !k.Mod.Contains(tea.ModShift) {
+		return false
+	}
+	switch k.Code {
+	case tea.KeyEnter, tea.KeyKpEnter:
+		return true
+	default:
+		return false
+	}
 }
 
 func itoa(n int) string {

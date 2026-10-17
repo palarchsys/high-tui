@@ -24,6 +24,16 @@ func TestWrapKeepsExactWord(t *testing.T) {
 	}
 }
 
+func TestPageKeepsSourceLine(t *testing.T) {
+	rows, max := Page("titre\nitem", 10, 2, 0)
+	if max != 0 || len(rows) != 2 || rows[0].From != 0 || rows[1].From != 1 {
+		t.Fatalf("%#v %d", rows, max)
+	}
+	if rows[0].Text != "titre     " || rows[1].Text != "item      " {
+		t.Fatalf("%#v", rows)
+	}
+}
+
 func TestShiftLineIsTwoRows(t *testing.T) {
 	rows := Wrap("une\ndeux", 10)
 	if len(rows) != 2 || rows[0].Text != "une" || rows[1].Text != "deux" {

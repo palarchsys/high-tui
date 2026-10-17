@@ -19,12 +19,13 @@ type Box struct {
 	Gap    int
 }
 
-// Band is one placed row.
+// Band is one placed row. InsetL and InsetR are the side margins, in cells.
 type Band struct {
-	Row    model.Row
-	Y      int
-	Height int
-	Boxes  []Box
+	Row            model.Row
+	Y              int
+	Height         int
+	InsetL, InsetR int
+	Boxes          []Box
 }
 
 // Placed is a window ready to draw.
@@ -98,6 +99,45 @@ func outerH(style model.Style, lines int) int {
 	return style.BorderWidth*2 + style.Pad[0] + lines + between + style.Pad[2]
 }
 
+func rowInsets(win model.Window, row model.Row) (int, int) {
+	left := win.Style.Mar[3] + win.Style.BorderWidth + win.Style.Pad[3]
+	right := win.Style.Mar[1] + win.Style.BorderWidth + win.Style.Pad[1]
+	maxL, maxR := 0, 0
+	for _, zone := range row.Zones {
+		if zone.Base.Mar[3] > maxL {
+			maxL = zone.Base.Mar[3]
+		}
+		if zone.Base.Mar[1] > maxR {
+			maxR = zone.Base.Mar[1]
+		}
+	}
+	return left + maxL, right + maxR
+}
+
+func columnGaps(row model.Row) []int {
+	base := row.Style.Gap
+	for _, zone := range row.Zones {
+		if zone.Base.Gap > base {
+			base = zone.Base.Gap
+		}
+	}
+	if len(row.Zones) < 2 {
+		return nil
+	}
+	gaps := make([]int, len(row.Zones)-1)
+	for i := range gaps {
+		g := base
+		if row.Zones[i].Base.Mar[1] > g {
+			g = row.Zones[i].Base.Mar[1]
+		}
+		if row.Zones[i+1].Base.Mar[3] > g {
+			g = row.Zones[i+1].Base.Mar[3]
+		}
+		gaps[i] = g
+	}
+	return gaps
+}
+
 // Place lays win out at the given width. Width 0 uses Fitted.
 func Place(win model.Window, width int) (Placed, error) {
 	if width == 0 {
@@ -107,26 +147,45 @@ func Place(win model.Window, width int) (Placed, error) {
 		}
 		width = n
 	}
-	pad := win.Style.Pad
-	inner := width - pad[1] - pad[3] - win.Style.BorderWidth*2
-	placed := Placed{Window: win, Width: width, Inner: inner}
+	chrome := win.Style.Pad[1] + win.Style.Pad[3] + win.Style.BorderWidth*2 + win.Style.Mar[1] + win.Style.Mar[3]
+	placed := Placed{Window: win, Width: width, Inner: width - chrome}
 	y := 0
 	var prevMB *int
 	for _, row := range win.Rows {
-		gap := row.Style.Gap
+		insetL, insetR := rowInsets(win, row)
+		content := width - insetL - insetR
+		if content < 1 {
+			return Placed{}, model.Errf("largeur insuffisante (%s)", row.ID)
+		}
 		frs := make([]int, len(row.Zones))
 		for i, zone := range row.Zones {
-			if zone.Base.Gap > gap {
-				gap = zone.Base.Gap
-			}
 			frs[i] = zone.Fr
 		}
-		widths, err := Widths(inner, frs, gap, row.ID)
+		gaps := columnGaps(row)
+		sumGap := 0
+		same := true
+		for i, g := range gaps {
+			sumGap += g
+			if i > 0 && g != gaps[0] {
+				same = false
+			}
+		}
+		var widths []int
+		var err error
+		if same {
+			gap := 0
+			if len(gaps) > 0 {
+				gap = gaps[0]
+			}
+			widths, err = Widths(content, frs, gap, row.ID)
+		} else {
+			widths, err = Widths(content-sumGap, frs, 0, row.ID)
+		}
 		if err != nil {
 			return Placed{}, err
 		}
-		x := pad[3] + win.Style.BorderWidth
-		band := Band{Row: row}
+		x := insetL
+		band := Band{Row: row, InsetL: insetL, InsetR: insetR}
 		maxH := 0
 		for i, zone := range row.Zones {
 			tw := textW(widths[i], zone.Base)
@@ -138,8 +197,8 @@ func Place(win model.Window, width int) (Placed, error) {
 				maxH = oh
 			}
 			g := 0
-			if i < len(row.Zones)-1 {
-				g = gap
+			if i < len(gaps) {
+				g = gaps[i]
 			}
 			band.Boxes = append(band.Boxes, Box{
 				Zone: zone, X: x, OuterW: widths[i], OuterH: oh, TextW: tw, Lines: row.Lines, Gap: g,
@@ -171,15 +230,15 @@ func Place(win model.Window, width int) (Placed, error) {
 		y += maxH
 		prev := mb
 		prevMB = &prev
-		used := 0
+		used := insetL + insetR
 		for i, w := range widths {
 			used += w
-			if i > 0 {
-				used += gap
+			if i < len(gaps) {
+				used += gaps[i]
 			}
 		}
-		if used != inner {
-			return Placed{}, model.Errf("la rangée %s ne fait pas 100 %% (%d au lieu de %d)", row.ID, used, inner)
+		if used != width {
+			return Placed{}, model.Errf("la rangée %s ne fait pas 100 %% (%d au lieu de %d)", row.ID, used, width)
 		}
 		placed.Bands = append(placed.Bands, band)
 	}

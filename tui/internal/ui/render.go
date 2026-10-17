@@ -25,11 +25,17 @@ func paint(view viewState) string {
 			y++
 		}
 		var cells []string
+		if band.InsetL > 0 {
+			cells = append(cells, fill(bg, band.InsetL, band.Height))
+		}
 		for _, box := range band.Boxes {
 			cells = append(cells, paintBox(view, box))
 			if box.Gap > 0 {
 				cells = append(cells, fill(bg, box.Gap, band.Height))
 			}
+		}
+		if band.InsetR > 0 {
+			cells = append(cells, fill(bg, band.InsetR, band.Height))
 		}
 		row := lipgloss.JoinHorizontal(lipgloss.Top, cells...)
 		for _, line := range strings.Split(row, "\n") {
@@ -78,21 +84,39 @@ func paintBox(view viewState, box layout.Box) string {
 	} else {
 		scroll = view.scroll[key(view.winID, zone.ID)]
 	}
-	lines, _ := text.View(body, box.TextW, box.Lines, scroll)
+	page, _ := text.Page(body, box.TextW, box.Lines, scroll)
 	if style.LineHeight > 1 {
-		var spaced []string
-		for i, line := range lines {
-			spaced = append(spaced, line)
-			if i < len(lines)-1 {
+		var spaced []text.Row
+		for i, row := range page {
+			spaced = append(spaced, row)
+			if i < len(page)-1 {
 				for n := 1; n < style.LineHeight; n++ {
-					spaced = append(spaced, "")
+					spaced = append(spaced, text.Row{From: -1})
 				}
 			}
 		}
-		lines = spaced
+		page = spaced
+	}
+	title := style.TitleColor
+	if title == "" {
+		title = style.Color
+	}
+	lines := make([]string, len(page))
+	for i, row := range page {
+		fg := style.Color
+		if titleZone(zone.Tag) && row.From == 0 {
+			fg = title
+		}
+		line := lipgloss.NewStyle().
+			Foreground(lipgloss.Color(fg)).
+			Background(lipgloss.Color(style.Background)).
+			Inline(true)
+		if style.Bold {
+			line = line.Bold(true)
+		}
+		lines[i] = line.Render(row.Text)
 	}
 	s := lipgloss.NewStyle().
-		Foreground(lipgloss.Color(style.Color)).
 		Background(lipgloss.Color(style.Background)).
 		Width(box.OuterW)
 	if style.Bold {
@@ -110,6 +134,15 @@ func paintBox(view viewState, box layout.Box) string {
 		s = s.Padding(style.Pad[0], style.Pad[1], style.Pad[2], style.Pad[3])
 	}
 	return s.Render(strings.Join(lines, "\n"))
+}
+
+func titleZone(tag string) bool {
+	switch tag {
+	case "header", "nav", "select", "input":
+		return true
+	default:
+		return false
+	}
 }
 
 func logical(view viewState, box layout.Box) string {

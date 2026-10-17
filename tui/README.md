@@ -116,10 +116,11 @@ Une propriété inconnue arrête la génération en nommant l'identifiant.
 | `column-gap` | `0`. L'écart d'une rangée est le plus grand écart de ses zones et de la rangée |
 | `line-height` | `1`, un entier, sans `ch` |
 | `font-weight` | `normal`. L'autre valeur est `bold` |
+| `title-color` | la couleur du texte. Elle colore la première ligne source d'un `header`, d'un `nav`, d'un `select` et du nom d'un `input` |
 
-Une longueur est un nombre seul ou un nombre suivi de `ch`. `:focus` ne s'applique qu'à la zone qui a le focus.
+Une longueur est un nombre seul ou un nombre suivi de `ch`. `:focus` ne s'applique qu'à la zone qui a le focus. Une règle sans `:focus` s'applique aussi à la zone focalisée, donc `title-color` posé sur la balise reste au focus.
 
-Les marges verticales de deux rangées voisines se replient sur la plus grande. La marge haute de la première rangée et la marge basse de la dernière restent. Les marges horizontales des zones sont ignorées.
+Les marges verticales de deux rangées voisines se replient sur la plus grande. La marge haute de la première rangée et la marge basse de la dernière restent. À gauche, le contenu est rentré de la marge gauche de la fenêtre, de sa bordure, de son padding gauche et de la plus grande marge gauche des zones de la rangée. À droite, le calcul est symétrique. Entre deux colonnes, l'écart est le plus grand entre le `column-gap` et les marges qui se font face. Le cadre occupe toute la largeur retenue.
 
 La hauteur extérieure d'une zone est `bordure + padding haut + lines + (lines − 1) × (line-height − 1) + padding bas + bordure`. Une seule colonne prend toute la largeur intérieure. Sinon les colonnes sauf la dernière reçoivent `floor(utile × fr / somme)`, et la dernière reçoit le reste. `utile` retire les `column-gap`.
 
@@ -130,14 +131,15 @@ La hauteur extérieure d'une zone est `bordure + padding haut + lines + (lines �
 | Gauche, Droite | Zone focalisable précédente ou suivante |
 | Haut, Bas | Dans une liste, change la ligne et lance son action de focus. Dans un champ qui déborde, défile, puis change de zone au bord |
 | Entrée | Action `enter` |
-| Échap | Fenêtre précédente, ou « Déjà à la première fenêtre » |
-| `q` | Quitte. Ignoré pendant une commande |
+| Échap | Fenêtre précédente, ou « Déjà à la première fenêtre ». Pendant une commande, annule |
+| Ctrl+Q, Ctrl+C | Quitte. Une commande en cours est annulée d'abord |
+| `q` | Ne quitte pas. Dans un éditeur, écrit la lettre |
 
 L'action de focus part au lancement, au changement de zone ou de ligne, et à l'ouverture ou au retour d'une fenêtre. Elle ne repart pas à chaque image.
 
-Dans un `textarea`, Maj+Entrée insère un retour à la ligne. Entrée ferme l'édition. Échap annule et restaure le texte. Les flèches déplacent le curseur. Haut et Bas font défiler quand le curseur atteint le bord. Dans un `input`, Maj+Entrée ne fait rien. Un collage conserve les retours à la ligne dans un `textarea` et les retire dans un `input`.
+Dans un `textarea`, Maj+Entrée insère un retour à la ligne dès que le terminal envoie cette touche, y compris après les flèches ou Entrée. Entrée ferme l'édition et n'insère pas de retour à la ligne. Échap annule et restaure le texte. Les flèches déplacent le curseur. Haut et Bas font défiler quand le curseur atteint le bord. Dans un `input`, Maj+Entrée ne fait rien. Un collage conserve les retours à la ligne dans un `textarea` et les retire dans un `input`.
 
-Si le terminal ne distingue pas Maj+Entrée, le statut devient « Ce terminal ne distingue pas Maj+Entrée ». Entrée ferme quand même l'édition. Aucun retour à la ligne n'est inventé.
+Si le terminal ne distingue pas Maj+Entrée, l'ouverture d'un `textarea` met le statut à « Ce terminal ne distingue pas Maj+Entrée ». Un vrai Maj+Entrée efface cet avertissement et insère le retour à la ligne. Entrée ferme quand même l'édition. Aucun retour à la ligne n'est inventé quand le terminal envoie une Entrée simple.
 
 `save="enter"` écrit à la fermeture de l'édition. `save="button"` marque la zone et affiche « Modifié » jusqu'au bouton d'enregistrement. `set` écrit tout de suite.
 

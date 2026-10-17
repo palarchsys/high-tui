@@ -105,8 +105,8 @@ func writeAction(b *strings.Builder, act model.Action) {
 }
 
 func writeStyle(b *strings.Builder, st model.Style) {
-	fmt.Fprintf(b, "model.Style{Color: %s, Background: %s, BorderColor: %s, BorderWidth: %d, Radius: %d, LineHeight: %d, Gap: %d, MaxWidth: %d, Bold: %t, Pad: [4]int{%d, %d, %d, %d}, Mar: [4]int{%d, %d, %d, %d}}",
-		q(st.Color), q(st.Background), q(st.BorderColor), st.BorderWidth, st.Radius, st.LineHeight, st.Gap, st.MaxWidth, st.Bold,
+	fmt.Fprintf(b, "model.Style{Color: %s, TitleColor: %s, Background: %s, BorderColor: %s, BorderWidth: %d, Radius: %d, LineHeight: %d, Gap: %d, MaxWidth: %d, Bold: %t, Pad: [4]int{%d, %d, %d, %d}, Mar: [4]int{%d, %d, %d, %d}}",
+		q(st.Color), q(st.TitleColor), q(st.Background), q(st.BorderColor), st.BorderWidth, st.Radius, st.LineHeight, st.Gap, st.MaxWidth, st.Bold,
 		st.Pad[0], st.Pad[1], st.Pad[2], st.Pad[3], st.Mar[0], st.Mar[1], st.Mar[2], st.Mar[3])
 }
 

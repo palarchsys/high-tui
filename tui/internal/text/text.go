@@ -98,8 +98,9 @@ func Bar(row, visible, total, scroll int) string {
 	return "│"
 }
 
-// View returns exactly lines strings of width textW, with a scrollbar when needed.
-func View(text string, textW, lines, scroll int) ([]string, int) {
+// Page returns exactly lines rows of width textW, with a scrollbar when needed.
+// A row past the text has From -1. The visible text keeps its source line.
+func Page(text string, textW, lines, scroll int) ([]Row, int) {
 	if lines < 1 {
 		lines = 1
 	}
@@ -121,17 +122,29 @@ func View(text string, textW, lines, scroll int) ([]string, int) {
 	if scroll > maxScroll {
 		scroll = maxScroll
 	}
-	out := make([]string, lines)
+	out := make([]Row, lines)
 	for i := 0; i < lines; i++ {
 		piece := ""
+		from := -1
 		if scroll+i < len(rows) {
 			piece = rows[scroll+i].Text
+			from = rows[scroll+i].From
 		}
 		piece = ClipPad(piece, width)
 		if bar {
 			piece += Bar(i, lines, len(rows), scroll)
 		}
-		out[i] = piece
+		out[i] = Row{Text: piece, From: from}
+	}
+	return out, maxScroll
+}
+
+// View returns exactly lines strings of width textW, with a scrollbar when needed.
+func View(text string, textW, lines, scroll int) ([]string, int) {
+	rows, maxScroll := Page(text, textW, lines, scroll)
+	out := make([]string, len(rows))
+	for i, row := range rows {
+		out[i] = row.Text
 	}
 	return out, maxScroll
 }
