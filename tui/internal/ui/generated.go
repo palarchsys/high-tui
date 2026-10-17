@@ -217,5 +217,86 @@ func generatedWindows() []model.Window {
 				},
 			},
 		},
+		{
+			ID: "notes", Label: "Notes", File: "notes.html",
+			Style: model.Style{Color: "#e6edf3", TitleColor: "", Background: "#0d1117", BorderColor: "#e6edf3", BorderWidth: 0, Radius: 0, LineHeight: 1, Gap: 0, MaxWidth: 260, Bold: false, Pad: [4]int{0, 0, 0, 0}, Mar: [4]int{0, 0, 0, 0}},
+			Grid: model.Grid{
+				ID: "notes",
+				Rows: []model.GridRow{
+					{
+						ID: "entete-notes", Lines: 1,
+						Cells: []model.Cell{
+							{
+								Fr: 1,
+								Zone: &model.Zone{
+									Tag: "header", ID: "titre-notes", Label: "Notes", Value: "",
+									File: "", Name: "", Save: "", Href: "", Run: "", Output: "",
+									Readonly: false, ItemsFrom: "", NextNav: "",
+									Focus:   model.Action{Kind: "", Target: "", File: "", Name: "", Href: "", Run: "", Output: "", Value: ""},
+									Enter:   model.Action{Kind: "", Target: "", File: "", Name: "", Href: "", Run: "", Output: "", Value: ""},
+									Base:    model.Style{Color: "#e6edf3", TitleColor: "#ffa657", Background: "#161b22", BorderColor: "#30363d", BorderWidth: 1, Radius: 1, LineHeight: 1, Gap: 1, MaxWidth: 260, Bold: false, Pad: [4]int{0, 1, 0, 1}, Mar: [4]int{1, 1, 1, 1}},
+									FocusOn: model.Style{Color: "#e6edf3", TitleColor: "#ffa657", Background: "#161b22", BorderColor: "#30363d", BorderWidth: 1, Radius: 1, LineHeight: 1, Gap: 1, MaxWidth: 260, Bold: false, Pad: [4]int{0, 1, 0, 1}, Mar: [4]int{1, 1, 1, 1}},
+								},
+							},
+						},
+					},
+					{
+						ID: "liste-notes", Lines: 3,
+						Cells: []model.Cell{
+							{
+								Fr: 1,
+								Zone: &model.Zone{
+									Tag: "nav", ID: "nav-notes", Label: "Notes", Value: "",
+									File: "", Name: "", Save: "", Href: "", Run: "", Output: "",
+									Readonly: false, ItemsFrom: "", NextNav: "",
+									Focus:   model.Action{Kind: "", Target: "", File: "", Name: "", Href: "", Run: "", Output: "", Value: ""},
+									Enter:   model.Action{Kind: "", Target: "", File: "", Name: "", Href: "", Run: "", Output: "", Value: ""},
+									Base:    model.Style{Color: "#e6edf3", TitleColor: "#ffa657", Background: "#161b22", BorderColor: "#30363d", BorderWidth: 1, Radius: 1, LineHeight: 1, Gap: 1, MaxWidth: 260, Bold: false, Pad: [4]int{0, 1, 0, 1}, Mar: [4]int{1, 1, 1, 1}},
+									FocusOn: model.Style{Color: "#e6edf3", TitleColor: "#ffa657", Background: "#161b22", BorderColor: "#58a6ff", BorderWidth: 1, Radius: 1, LineHeight: 1, Gap: 1, MaxWidth: 260, Bold: true, Pad: [4]int{0, 1, 0, 1}, Mar: [4]int{1, 1, 1, 1}},
+									Items: []model.Item{
+										{ID: "item-brouillon", Label: "Brouillon", Value: "", Focus: model.Action{Kind: "load", Target: "corps", File: "samples/brouillon.txt", Name: "", Href: "", Run: "", Output: "", Value: ""}, Enter: model.Action{Kind: "", Target: "", File: "", Name: "", Href: "", Run: "", Output: "", Value: ""}},
+										{ID: "nav-notes-retour", Label: "Retour", Value: "", Focus: model.Action{Kind: "", Target: "", File: "", Name: "", Href: "", Run: "", Output: "", Value: ""}, Enter: model.Action{Kind: "return", Target: "", File: "", Name: "", Href: "", Run: "", Output: "", Value: ""}},
+									},
+								},
+							},
+						},
+					},
+					{
+						ID: "page-notes", Lines: 4,
+						Cells: []model.Cell{
+							{
+								Fr: 1,
+								Zone: &model.Zone{
+									Tag: "textarea", ID: "corps", Label: "", Value: "Brouillon",
+									File: "samples/brouillon.txt", Name: "", Save: "", Href: "", Run: "", Output: "",
+									Readonly: true, ItemsFrom: "", NextNav: "",
+									Focus:   model.Action{Kind: "", Target: "", File: "", Name: "", Href: "", Run: "", Output: "", Value: ""},
+									Enter:   model.Action{Kind: "", Target: "", File: "", Name: "", Href: "", Run: "", Output: "", Value: ""},
+									Base:    model.Style{Color: "#e6edf3", TitleColor: "#ffa657", Background: "#161b22", BorderColor: "#30363d", BorderWidth: 1, Radius: 1, LineHeight: 1, Gap: 1, MaxWidth: 260, Bold: false, Pad: [4]int{0, 1, 0, 1}, Mar: [4]int{1, 1, 1, 1}},
+									FocusOn: model.Style{Color: "#e6edf3", TitleColor: "#ffa657", Background: "#161b22", BorderColor: "#58a6ff", BorderWidth: 1, Radius: 1, LineHeight: 1, Gap: 1, MaxWidth: 260, Bold: true, Pad: [4]int{0, 1, 0, 1}, Mar: [4]int{1, 1, 1, 1}},
+								},
+							},
+						},
+					},
+					{
+						ID: "barre-notes", Lines: 1,
+						Cells: []model.Cell{
+							{
+								Fr: 1,
+								Zone: &model.Zone{
+									Tag: "footer", ID: "statut-notes", Label: "Prêt", Value: "",
+									File: "", Name: "", Save: "", Href: "", Run: "", Output: "",
+									Readonly: false, ItemsFrom: "", NextNav: "",
+									Focus:   model.Action{Kind: "", Target: "", File: "", Name: "", Href: "", Run: "", Output: "", Value: ""},
+									Enter:   model.Action{Kind: "", Target: "", File: "", Name: "", Href: "", Run: "", Output: "", Value: ""},
+									Base:    model.Style{Color: "#e6edf3", TitleColor: "", Background: "#161b22", BorderColor: "#30363d", BorderWidth: 1, Radius: 1, LineHeight: 1, Gap: 1, MaxWidth: 260, Bold: false, Pad: [4]int{0, 1, 0, 1}, Mar: [4]int{1, 1, 1, 1}},
+									FocusOn: model.Style{Color: "#e6edf3", TitleColor: "", Background: "#161b22", BorderColor: "#30363d", BorderWidth: 1, Radius: 1, LineHeight: 1, Gap: 1, MaxWidth: 260, Bold: false, Pad: [4]int{0, 1, 0, 1}, Mar: [4]int{1, 1, 1, 1}},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 }
