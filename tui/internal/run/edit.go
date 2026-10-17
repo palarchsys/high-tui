@@ -17,7 +17,8 @@ const (
 )
 
 // ApplyEdit handles one key inside an editor.
-// multiline is true for a textarea. Shift+Enter inserts a newline only then.
+// multiline is true for a textarea. Enter and Shift+Enter insert a newline then.
+// Enter on a single-line input commits. Ctrl+S commits. Ctrl+C and Escape cancel.
 func ApplyEdit(ed Edit, key string, multiline bool) (Edit, EditResult) {
 	rs := []rune(ed.Text)
 	if ed.Cursor < 0 {
@@ -31,13 +32,15 @@ func ApplyEdit(ed Edit, key string, multiline bool) (Edit, EditResult) {
 		if !multiline {
 			return ed, EditNone
 		}
-		rs = insert(rs, ed.Cursor, '\n')
-		ed.Cursor++
-		ed.Text = string(rs)
-		return ed, EditNone
+		return insertNewline(ed, rs), EditNone
 	case "enter":
+		if multiline {
+			return insertNewline(ed, rs), EditNone
+		}
 		return ed, EditCommit
-	case "esc":
+	case "ctrl+s":
+		return ed, EditCommit
+	case "esc", "ctrl+c":
 		return ed, EditCancel
 	case "left":
 		if ed.Cursor > 0 {
@@ -69,6 +72,13 @@ func ApplyEdit(ed Edit, key string, multiline bool) (Edit, EditResult) {
 		}
 	}
 	return ed, EditNone
+}
+
+func insertNewline(ed Edit, rs []rune) Edit {
+	rs = insert(rs, ed.Cursor, '\n')
+	ed.Cursor++
+	ed.Text = string(rs)
+	return ed
 }
 
 func insert(rs []rune, at int, r rune) []rune {

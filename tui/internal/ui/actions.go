@@ -306,11 +306,8 @@ func (a *app) beginEdit(id string) error {
 	k := key(a.winID(), zone.ID)
 	text := a.val[k]
 	a.edit = &editor{
-		zone: id, multiline: zone.Tag == "textarea", save: zone.Save,
+		zone: id, multiline: zone.Tag == "textarea",
 		original: text, state: run.Edit{Text: text, Cursor: len([]rune(text))},
-	}
-	if zone.Tag == "textarea" && a.keyMode == keysPlain {
-		a.status = noShiftMsg
 	}
 	a.reveal()
 	return nil
@@ -329,7 +326,11 @@ func (a *app) commitEdit() error {
 	k := key(a.winID(), ed.zone)
 	prev := a.val[k]
 	a.val[k] = ed.state.Text
-	if ed.save == "enter" {
+	file := a.file[k]
+	if file == "" {
+		file = zone.File
+	}
+	if file != "" {
 		if err := a.writeZone(zone, k); err != nil {
 			a.val[k] = prev
 			a.status = err.Error()
@@ -337,7 +338,10 @@ func (a *app) commitEdit() error {
 		}
 		a.dirty[k] = false
 		a.status = "Enregistré"
-	} else if ed.state.Text != ed.original {
+		a.edit = nil
+		return nil
+	}
+	if ed.state.Text != ed.original {
 		a.dirty[k] = true
 		a.status = "Modifié"
 	}

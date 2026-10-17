@@ -51,7 +51,6 @@ type app struct {
 type editor struct {
 	zone      string
 	multiline bool
-	save      string
 	original  string
 	state     run.Edit
 }

@@ -16,10 +16,31 @@ func TestShiftEnterIgnoredOnInput(t *testing.T) {
 	}
 }
 
-func TestEnterCommits(t *testing.T) {
-	_, res := ApplyEdit(Edit{Text: "ab", Cursor: 2}, "enter", true)
+func TestEnterInsertsNewline(t *testing.T) {
+	ed, res := ApplyEdit(Edit{Text: "ab", Cursor: 1}, "enter", true)
+	if res != EditNone || ed.Text != "a\nb" || ed.Cursor != 2 {
+		t.Fatalf("%q %d %v", ed.Text, ed.Cursor, res)
+	}
+}
+
+func TestEnterCommitsInput(t *testing.T) {
+	ed, res := ApplyEdit(Edit{Text: "ab", Cursor: 2}, "enter", false)
+	if res != EditCommit || ed.Text != "ab" {
+		t.Fatal(ed.Text, res)
+	}
+}
+
+func TestCtrlSCommits(t *testing.T) {
+	_, res := ApplyEdit(Edit{Text: "ab", Cursor: 2}, "ctrl+s", true)
 	if res != EditCommit {
 		t.Fatal(res)
+	}
+}
+
+func TestCtrlCCancels(t *testing.T) {
+	ed, res := ApplyEdit(Edit{Text: "ab", Cursor: 1}, "ctrl+c", true)
+	if res != EditCancel || ed.Text != "ab" {
+		t.Fatal(ed.Text, res)
 	}
 }
 

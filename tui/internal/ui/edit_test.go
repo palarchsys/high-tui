@@ -24,36 +24,29 @@ func TestShiftEnterAddsLine(t *testing.T) {
 	if a.edit == nil || a.edit.state.Text != "a\nb" {
 		t.Fatalf("texte inattendu")
 	}
-	a.onKey(keyMsg("enter"))
+	a.onKey(keyMsg("ctrl+s"))
 	if a.edit != nil {
-		t.Fatal("entrée n'a pas fermé")
+		t.Fatal("ctrl+s n'a pas fermé")
 	}
 	if a.val[key("main", "corps")] != "a\nb" {
 		t.Fatal(a.val[key("main", "corps")])
 	}
 }
 
-func TestShiftEnterWithoutEnhancements(t *testing.T) {
+func TestEnterAddsLineWhenTerminalIsPlain(t *testing.T) {
 	a := editApp(t)
 	a.keyMode = keysPlain
 	a.onKey(keyMsg("enter"))
-	if a.status != noShiftMsg {
-		t.Fatal(a.status)
-	}
-	a.edit.state.Cursor = 1
-	a.onKey(keyMsg("shift+enter"))
-	if a.edit == nil || a.edit.state.Text != "a\nb" {
-		t.Fatal(a.edit)
+	if a.edit == nil {
+		t.Fatal("édition non ouverte")
 	}
 	if a.status == noShiftMsg {
 		t.Fatal(a.status)
 	}
+	a.edit.state.Cursor = 1
 	a.onKey(keyMsg("enter"))
-	if a.edit != nil {
-		t.Fatal("entrée doit fermer")
-	}
-	if a.val[key("main", "corps")] != "a\nb" {
-		t.Fatal(a.val[key("main", "corps")])
+	if a.edit == nil || a.edit.state.Text != "a\nb" {
+		t.Fatal(a.edit)
 	}
 }
 
@@ -71,17 +64,38 @@ func TestShiftEnterAfterOtherKeys(t *testing.T) {
 	}
 }
 
-func TestEnterClosesWithoutNewline(t *testing.T) {
+func TestCtrlSAndCtrlC(t *testing.T) {
+	dir := t.TempDir()
 	a := editApp(t)
-	a.keyMode = keysEnhanced
+	a.root = dir
+	a.file[key("main", "corps")] = "note.txt"
 	a.onKey(keyMsg("enter"))
 	a.edit.state.Cursor = 1
 	a.onKey(keyMsg("enter"))
-	if a.edit != nil {
-		t.Fatal("entrée n'a pas fermé")
+	a.onKey(keyMsg("ctrl+s"))
+	if a.edit != nil || a.status != "Enregistré" {
+		t.Fatal(a.edit, a.status)
 	}
-	if a.val[key("main", "corps")] != "ab" {
-		t.Fatal(a.val[key("main", "corps")])
+	got, err := os.ReadFile(filepath.Join(dir, "note.txt"))
+	if err != nil || string(got) != "a\nb\n" {
+		t.Fatalf("%q %v", got, err)
+	}
+	b := editApp(t)
+	b.onKey(keyMsg("enter"))
+	b.onKey(keyMsg("x"))
+	if cmd := b.onKey(keyMsg("ctrl+c")); cmd != nil {
+		t.Fatal("ctrl+c quitte l'édition")
+	}
+	if b.edit != nil || b.val[key("main", "corps")] != "ab" || b.status != "Annulé" {
+		t.Fatal(b.edit, b.val[key("main", "corps")], b.status)
+	}
+	c := editApp(t)
+	cmd := c.onKey(keyMsg("ctrl+c"))
+	if cmd == nil {
+		t.Fatal("ctrl+c hors édition ignoré")
+	}
+	if _, ok := cmd().(tea.QuitMsg); !ok {
+		t.Fatal("pas une sortie")
 	}
 }
 
@@ -278,6 +292,10 @@ func keyMsg(name string) tea.KeyPressMsg {
 		return tea.KeyPressMsg{Code: tea.KeyEnter, Mod: tea.ModShift}
 	case "esc":
 		return tea.KeyPressMsg{Code: tea.KeyEsc}
+	case "ctrl+s":
+		return tea.KeyPressMsg{Code: 's', Mod: tea.ModCtrl}
+	case "ctrl+c":
+		return tea.KeyPressMsg{Code: 'c', Mod: tea.ModCtrl}
 	default:
 		return tea.KeyPressMsg{Text: name, Code: rune([]rune(name)[0])}
 	}
