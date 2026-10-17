@@ -17,35 +17,38 @@ func Screen(root string, width int) (string, error) {
 }
 
 type app struct {
-	root      string
-	wins      []model.Window
-	origin    []model.Window
-	placed    []layout.Placed
-	cur       int
-	stack     []int
-	focus     int
-	sel       map[string]int
-	scroll    map[string]int
-	val       map[string]string
-	file      map[string]string
-	name      map[string]string
-	dirty     map[string]bool
-	rawLabel  map[string]string
-	rawValue  map[string]string
-	resolved  map[string]string
-	status    string
-	edit      *editor
-	width     int
-	termW     int
-	keyMode   int
-	focusAt   map[string]int
-	spin      int
-	running   bool
-	runGen    int
-	cancel    func()
-	cmdLabel  string
-	focusMark string
-	pending   tea.Cmd
+	root       string
+	wins       []model.Window
+	origin     []model.Window
+	placed     []layout.Placed
+	cur        int
+	stack      []int
+	focus      int
+	sel        map[string]int
+	scroll     map[string]int
+	val        map[string]string
+	file       map[string]string
+	name       map[string]string
+	dirty      map[string]bool
+	rawLabel   map[string]string
+	rawValue   map[string]string
+	resolved   map[string]string
+	status     string
+	edit       *editor
+	width      int
+	termW      int
+	keyMode    int
+	focusAt    map[string]int
+	spin       int
+	running    bool
+	runGen     int
+	cancel     func()
+	cmdLabel   string
+	focusMark  string
+	pending    tea.Cmd
+	listGen    int
+	listCancel func()
+	listLabel  string
 }
 
 type editor struct {
@@ -88,6 +91,9 @@ func newApp(root string, width int) (*app, error) {
 	}
 	if err := a.resolveAll(); err != nil {
 		return nil, err
+	}
+	if err := a.loadDeclaredItems(); err != nil {
+		a.status = err.Error()
 	}
 	if err := a.layoutAll(); err != nil {
 		return nil, err
@@ -139,6 +145,9 @@ func (a *app) resolveAll() error {
 			zone.Enter.Value, err = resolve(from.Enter.Value, zone.ID)
 			if err != nil {
 				return err
+			}
+			if from.ItemsFrom != "" || len(zone.Items) != len(from.Items) {
+				continue
 			}
 			for ii := range zone.Items {
 				item := &zone.Items[ii]

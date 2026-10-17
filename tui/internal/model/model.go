@@ -39,33 +39,40 @@ type Style struct {
 }
 
 // Item is one row of a nav.
+// Next is a file or a cmd: command. NextItems is an inline list. One of them is set.
 type Item struct {
-	ID    string
-	Label string
-	Value string
-	Focus Action
-	Enter Action
+	ID        string
+	Label     string
+	Value     string
+	File      string
+	Name      string
+	Next      string
+	NextItems []Item
+	Focus     Action
+	Enter     Action
 }
 
 // Zone is the content painted in one cell. It fills that cell.
 type Zone struct {
-	Tag      string
-	ID       string
-	Classes  []string
-	Label    string
-	Value    string
-	File     string
-	Name     string
-	Save     string
-	Href     string
-	Run      string
-	Output   string
-	Readonly bool
-	Focus    Action
-	Enter    Action
-	Items    []Item
-	Base     Style
-	FocusOn  Style
+	Tag       string
+	ID        string
+	Classes   []string
+	Label     string
+	Value     string
+	File      string
+	Name      string
+	Save      string
+	Href      string
+	Run       string
+	Output    string
+	Readonly  bool
+	Focus     Action
+	Enter     Action
+	ItemsFrom string
+	NextNav   string
+	Items     []Item
+	Base      Style
+	FocusOn   Style
 }
 
 // Cell is one slot of a grid row. It holds one zone or one nested grid.

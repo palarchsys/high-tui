@@ -77,6 +77,11 @@ func loadFile(root, path string, wins *[]model.Window, seen map[string]bool) err
 				return err
 			}
 		}
+		if zone.ItemsFrom != "" && !strings.HasPrefix(zone.ItemsFrom, "cmd:") {
+			if err := exist(root, zone.ItemsFrom); err != nil {
+				return err
+			}
+		}
 		hrefs = append(hrefs, hrefsOf(zone.Focus)...)
 		hrefs = append(hrefs, hrefsOf(zone.Enter)...)
 		for _, item := range zone.Items {
