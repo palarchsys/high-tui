@@ -1,0 +1,58 @@
+<window id="main" label="high-tui">
+  <header id="entete" lines="1">
+    <header id="titre" label="high-tui"></header>
+  </header>
+  <main id="listes" lines="4">
+    <nav id="nav-rubriques" label="Rubriques">
+      <item id="item-reseau" label="Réseau"
+            focus="load" focus-target="valeur-hote" focus-file="samples/passage.env" focus-name="HOTE"
+            enter="edit" enter-target="valeur-hote"></item>
+      <item id="item-notes" label="Notes"
+            enter="window" enter-href="notes.html"></item>
+    </nav>
+    <select id="nav-fiches" label="Fiches">
+      <item id="item-passage" label="Passage" value="127.0.0.1"
+            focus="load" focus-target="valeur-hote" focus-file="samples/passage.env" focus-name="HOTE"
+            enter="set" enter-target="valeur-hote" enter-file="samples/passage.env" enter-name="HOTE" enter-value="127.0.0.1"></item>
+      <item id="item-archive" label="Archive" value="8080"
+            focus="load" focus-target="valeur-hote" focus-file="samples/passage.env" focus-name="PORT"
+            enter="set" enter-target="valeur-hote" enter-file="samples/passage.env" enter-name="PORT" enter-value="8080"></item>
+      <item id="fiche-jeton" label="samples/secrets.conf::HFU_PRO_JETON::label" value="samples/secrets.conf::HFU_PRO_JETON::value"
+            focus="load" focus-target="valeur-hote" focus-file="samples/passage.env" focus-name="HOTE"
+            enter="set" enter-target="valeur-hote" enter-file="samples/passage.env" enter-name="HOTE" enter-value="samples/secrets.conf::HFU_PRO_JETON::value"></item>
+    </select>
+    <select id="nav-champs" label="Champs">
+      <item id="item-nom" label="Nom"
+            focus="load" focus-target="valeur-hote" focus-file="samples/passage.env" focus-name="NOM"
+            enter="edit" enter-target="valeur-hote"></item>
+      <item id="item-hote" label="Hôte"
+            focus="load" focus-target="valeur-hote" focus-file="samples/passage.env" focus-name="HOTE"
+            enter="edit" enter-target="valeur-hote"></item>
+      <item id="item-port" label="Port"
+            focus="load" focus-target="valeur-hote" focus-file="samples/passage.env" focus-name="PORT"
+            enter="edit" enter-target="valeur-hote"></item>
+    </select>
+    <select id="nav-menu" label="Menu">
+      <item id="item-ouvrir" label="Ouvrir"
+            focus="load" focus-target="apercu" focus-file="samples/brouillon.txt"></item>
+      <item id="item-modifier" label="Modifier"
+            focus="load" focus-target="valeur-hote" focus-file="samples/passage.env" focus-name="HOTE"
+            enter="edit" enter-target="valeur-hote"></item>
+    </select>
+  </main>
+  <main id="edition" lines="3">
+    <input id="valeur-hote" file="samples/passage.env" name="HOTE" save="button"
+           enter="edit" enter-target="valeur-hote"></input>
+    <textarea id="apercu" fr="2" file="samples/passage.env" readonly="false"
+              enter="edit" enter-target="apercu"></textarea>
+    <textarea id="sortie" file="samples/brouillon.txt" readonly="true"></textarea>
+  </main>
+  <main id="actions" lines="1">
+    <button id="enregistrer" label="Enregistrer" enter="save"></button>
+    <button id="recharger" label="Recharger" enter="refresh"></button>
+    <command id="essai" label="Essai local" enter="run" enter-run="echo ok" enter-output="sortie"></command>
+  </main>
+  <status id="barre" lines="1">
+    <status id="statut"></status>
+  </status>
+</window>

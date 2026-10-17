@@ -1,0 +1,17 @@
+<window id="notes" label="Notes">
+  <header id="entete-notes" lines="1">
+    <header id="titre-notes" label="Notes"></header>
+  </header>
+  <main id="liste-notes" lines="3">
+    <select id="nav-notes" label="Notes">
+      <item id="item-brouillon" label="Brouillon"
+            focus="load" focus-target="corps" focus-file="samples/brouillon.txt"></item>
+    </select>
+  </main>
+  <main id="page-notes" lines="4">
+    <textarea id="corps" file="samples/brouillon.txt" readonly="true"></textarea>
+  </main>
+  <status id="barre-notes" lines="1">
+    <status id="statut-notes"></status>
+  </status>
+</window>
