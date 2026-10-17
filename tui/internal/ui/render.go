@@ -127,7 +127,11 @@ func paintBox(view viewState, box layout.Box) string {
 		if style.Radius >= 1 {
 			border = lipgloss.RoundedBorder()
 		}
-		s = s.Border(border).BorderForeground(lipgloss.Color(style.BorderColor)).
+		borderColor := style.BorderColor
+		if view.editID == zone.ID && (zone.Tag == "input" || zone.Tag == "textarea") && style.TitleColor != "" {
+			borderColor = style.TitleColor
+		}
+		s = s.Border(border).BorderForeground(lipgloss.Color(borderColor)).
 			BorderBackground(lipgloss.Color(style.Background))
 	}
 	if style.Pad != ([4]int{}) {
@@ -193,6 +197,7 @@ type viewState struct {
 	placed   layout.Placed
 	winID    string
 	focusID  string
+	editID   string
 	status   string
 	sel      map[string]int
 	scroll   map[string]int

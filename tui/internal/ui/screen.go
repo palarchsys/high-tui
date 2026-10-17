@@ -243,7 +243,9 @@ func (a *app) frame() string {
 		focusID = box.Zone.ID
 	}
 	val := a.val
+	editID := ""
 	if a.edit != nil {
+		editID = a.edit.zone
 		val = make(map[string]string, len(a.val)+1)
 		for k, v := range a.val {
 			val[k] = v
@@ -251,7 +253,7 @@ func (a *app) frame() string {
 		val[key(a.winID(), a.edit.zone)] = a.edit.state.Text
 	}
 	return paint(viewState{
-		placed: a.current(), winID: a.wins[a.cur].ID, focusID: focusID,
+		placed: a.current(), winID: a.wins[a.cur].ID, focusID: focusID, editID: editID,
 		status: a.status, sel: a.sel, scroll: a.scroll, val: val, name: a.name,
 		resolved: a.resolved,
 	})

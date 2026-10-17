@@ -17,7 +17,7 @@ nav, select, textarea, input, button, command, header, status {
   column-gap: 1ch;
 }
 
-nav, select, header, input {
+nav, select, header, input, textarea {
   title-color: #ffa657;
 }
 
