@@ -127,6 +127,9 @@ func (a *app) onKey(msg tea.KeyPressMsg) tea.Cmd {
 		return nil
 	}
 	if a.edit != nil {
+		if name != "shift+enter" && name != "ctrl+s" {
+			name = editKeyName(msg)
+		}
 		return a.editKey(name)
 	}
 	switch name {
@@ -188,6 +191,28 @@ func cancelEditKey(msg tea.KeyPressMsg) bool {
 	}
 	k := msg.Key()
 	return k.Mod.Contains(tea.ModCtrl) && (k.Code == 'c' || k.Code == 'C')
+}
+
+// editKeyName maps the bytes a terminal actually sends for Backspace.
+// Byte 0x08 arrives as ctrl+h. A key whose text is DEL still has the backspace code.
+func editKeyName(msg tea.KeyPressMsg) string {
+	k := msg.Key()
+	switch k.Code {
+	case tea.KeyBackspace:
+		return "backspace"
+	case tea.KeyDelete:
+		return "delete"
+	}
+	if k.Mod == tea.ModCtrl && (k.Code == 'h' || k.Code == 'H') {
+		return "backspace"
+	}
+	name := msg.String()
+	switch name {
+	case "ctrl+h", "\x7f", "\b":
+		return "backspace"
+	default:
+		return name
+	}
 }
 
 func saveEditKey(msg tea.KeyPressMsg) bool {

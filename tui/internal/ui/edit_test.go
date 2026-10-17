@@ -369,6 +369,118 @@ func TestCursorCellIsTheEditedCharacter(t *testing.T) {
 	assertCursorRune(t, a, 'Z')
 }
 
+func TestBackspaceErasesThePreviousRune(t *testing.T) {
+	root := filepath.Join("..", "..")
+	a, err := newApp(root, 80)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const body = "Aa\nBb\nCc"
+	open := func() {
+		t.Helper()
+		a.edit = nil
+		a.val[key("main", "apercu")] = body
+		focusZone(t, a, "apercu")
+		if err := a.beginEdit("apercu"); err != nil {
+			t.Fatal(err)
+		}
+		a.edit.state.Cursor = 4
+		a.reveal()
+		assertCursorRune(t, a, 'b')
+	}
+	press := func(msg tea.KeyPressMsg) {
+		t.Helper()
+		open()
+		a.onKey(msg)
+		if a.edit == nil || a.edit.state.Text != "Aa\nb\nCc" || a.edit.state.Cursor != 3 {
+			t.Fatalf("texte %q curseur %d", a.edit.state.Text, a.edit.state.Cursor)
+		}
+		assertCursorRune(t, a, 'b')
+		assertCursorInside(t, a)
+	}
+	press(tea.KeyPressMsg{Code: tea.KeyBackspace})
+	press(tea.KeyPressMsg{Code: 'h', Mod: tea.ModCtrl})
+	press(tea.KeyPressMsg{Code: tea.KeyBackspace, Text: "\x7f"})
+
+	open()
+	a.edit.state.Cursor = len([]rune(body))
+	a.reveal()
+	assertCursorAfter(t, a, 'c')
+	a.onKey(tea.KeyPressMsg{Code: tea.KeyBackspace})
+	if a.edit.state.Text != "Aa\nBb\nC" || a.edit.state.Cursor != 7 {
+		t.Fatalf("fin %q %d", a.edit.state.Text, a.edit.state.Cursor)
+	}
+	assertCursorAfter(t, a, 'C')
+	assertCursorInside(t, a)
+
+	open()
+	a.edit.state.Cursor = 3
+	a.reveal()
+	assertCursorRune(t, a, 'B')
+	a.onKey(tea.KeyPressMsg{Code: tea.KeyBackspace})
+	if a.edit.state.Text != "AaBb\nCc" || a.edit.state.Cursor != 2 {
+		t.Fatalf("jointure %q %d", a.edit.state.Text, a.edit.state.Cursor)
+	}
+	assertCursorRune(t, a, 'B')
+	assertCursorInside(t, a)
+
+	open()
+	a.onKey(tea.KeyPressMsg{Code: tea.KeyDelete})
+	if a.edit.state.Text != "Aa\nB\nCc" || a.edit.state.Cursor != 4 {
+		t.Fatalf("suppr %q %d", a.edit.state.Text, a.edit.state.Cursor)
+	}
+	assertCursorAfter(t, a, 'B')
+	assertCursorInside(t, a)
+
+	_, box, ok := a.zoneByID("apercu")
+	if !ok {
+		t.Fatal("apercu")
+	}
+	wrapped := strings.Repeat("Q", box.TextW) + "Z"
+	a.edit = nil
+	a.val[key("main", "apercu")] = wrapped
+	focusZone(t, a, "apercu")
+	if err := a.beginEdit("apercu"); err != nil {
+		t.Fatal(err)
+	}
+	a.edit.state.Cursor = box.TextW
+	a.reveal()
+	assertCursorRune(t, a, 'Z')
+	a.onKey(tea.KeyPressMsg{Code: 'h', Mod: tea.ModCtrl})
+	if a.edit.state.Text != strings.Repeat("Q", box.TextW-1)+"Z" {
+		t.Fatal(a.edit.state.Text)
+	}
+	assertCursorRune(t, a, 'Z')
+	assertCursorInside(t, a)
+
+	var long strings.Builder
+	for i := 0; i < 12; i++ {
+		fmt.Fprintf(&long, "L%d\n", i)
+	}
+	long.WriteString("ZZ")
+	a.edit = nil
+	a.val[key("main", "apercu")] = long.String()
+	focusZone(t, a, "apercu")
+	if err := a.beginEdit("apercu"); err != nil {
+		t.Fatal(err)
+	}
+	at := strings.Index(long.String(), "Z")
+	a.edit.state.Cursor = at + 1
+	a.reveal()
+	assertCursorRune(t, a, 'Z')
+	a.onKey(tea.KeyPressMsg{Code: tea.KeyBackspace})
+	if !strings.HasSuffix(a.edit.state.Text, "Z") || a.edit.state.Cursor != at {
+		t.Fatalf("défilement %q %d", a.edit.state.Text, a.edit.state.Cursor)
+	}
+	assertCursorRune(t, a, 'Z')
+	assertCursorInside(t, a)
+
+	idle := editApp(t)
+	if cmd := idle.onKey(tea.KeyPressMsg{Code: 'h', Mod: tea.ModCtrl}); cmd != nil || idle.edit != nil {
+		t.Fatal("ctrl+h hors édition")
+	}
+}
+
 func focusZone(t *testing.T, a *app, id string) {
 	t.Helper()
 	for i, box := range a.boxes() {
@@ -424,6 +536,32 @@ func runeAt(frame string, x, y int) rune {
 		col += w
 	}
 	return 0
+}
+
+func assertCursorInside(t *testing.T, a *app) {
+	t.Helper()
+	if a.edit == nil {
+		t.Fatal("édition absente")
+	}
+	_, box, ok := a.zoneByID(a.edit.zone)
+	if !ok {
+		t.Fatal("zone absente")
+	}
+	x, y, ok := a.cursor()
+	if !ok {
+		t.Fatal("curseur absent")
+	}
+	style := box.Zone.Base
+	left := box.X + style.BorderWidth + style.Pad[3]
+	top := box.Y + style.BorderWidth + style.Pad[0]
+	width := box.TextW
+	if y < top || y >= top+box.Lines || x < left || x >= left+width {
+		t.Fatalf("curseur %d,%d hors du texte %d,%d %dx%d", x, y, left, top, width, box.Lines)
+	}
+	got := runeAt(a.frame(), x, y)
+	if isBorder(got) || got == '█' {
+		t.Fatalf("curseur sur %q en %d,%d", got, x, y)
+	}
 }
 
 func isBorder(r rune) bool {

@@ -50,10 +50,15 @@ func ApplyEdit(ed Edit, key string, multiline bool) (Edit, EditResult) {
 		if ed.Cursor < len(rs) {
 			ed.Cursor++
 		}
-	case "backspace":
+	case "backspace", "ctrl+h":
 		if ed.Cursor > 0 {
 			rs = append(rs[:ed.Cursor-1], rs[ed.Cursor:]...)
 			ed.Cursor--
+			ed.Text = string(rs)
+		}
+	case "delete":
+		if ed.Cursor < len(rs) {
+			rs = append(rs[:ed.Cursor], rs[ed.Cursor+1:]...)
 			ed.Text = string(rs)
 		}
 	case "up":
