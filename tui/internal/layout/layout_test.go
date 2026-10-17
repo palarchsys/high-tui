@@ -122,12 +122,56 @@ func TestNestedGridFillsCell(t *testing.T) {
 	if band.Cells[1].Sub.Bands[0].Y != 0 {
 		t.Fatal(band.Cells[1].Sub.Bands[0].Y)
 	}
+	haut := band.Cells[1].Sub.Bands[0].Cells[0].Box
+	cellX := band.InsetL + band.Cells[0].Width + band.Cells[0].Gap
+	if haut.Y != band.Y+band.Cells[1].Sub.Bands[0].Y {
+		t.Fatal(haut.Y, band.Y)
+	}
+	if haut.X != cellX+band.Cells[1].Sub.Bands[0].InsetL {
+		t.Fatal(haut.X, cellX)
+	}
 	used := band.InsetL + band.InsetR
 	for _, item := range band.Cells {
 		used += item.Width + item.Gap
 	}
 	if used != 40 {
 		t.Fatal(used)
+	}
+}
+
+func TestNestedBoxBelowHeader(t *testing.T) {
+	box := model.Style{
+		BorderWidth: 1, LineHeight: 1,
+		Pad: [4]int{0, 1, 0, 1}, Mar: [4]int{1, 1, 1, 1},
+	}
+	zone := func(id, tag string) *model.Zone {
+		return &model.Zone{Tag: tag, ID: id, Base: box, FocusOn: box}
+	}
+	inner := model.Grid{ID: "corps", Rows: []model.GridRow{{
+		ID: "edition", Lines: 2, Cells: []model.Cell{{Fr: 1, Zone: zone("corps", "textarea")}},
+	}}}
+	win := model.Window{
+		ID:    "main",
+		Style: model.Style{LineHeight: 1, MaxWidth: 40},
+		Grid: model.Grid{Rows: []model.GridRow{
+			{ID: "entete", Lines: 1, Cells: []model.Cell{{Fr: 1, Zone: zone("titre", "header")}}},
+			{ID: "page", Lines: 2, Cells: []model.Cell{{Fr: 1, Grid: &inner}}},
+		}},
+	}
+	placed, err := Place(win, 40)
+	if err != nil {
+		t.Fatal(err)
+	}
+	header := placed.Bands[0]
+	bottom := header.Y + header.Height
+	var corps *Box
+	placed.EachBox(func(item *Box) {
+		if item.Zone.ID == "corps" {
+			corps = item
+		}
+	})
+	if corps == nil || corps.Y < bottom {
+		t.Fatalf("corps %#v sous %d", corps, bottom)
 	}
 }
 

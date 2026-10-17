@@ -253,6 +253,77 @@ func visible(s string) string {
 	return b.String()
 }
 
+func TestGeneratedNotesWindow(t *testing.T) {
+	root := filepath.Join("..", "..")
+	app, err := newApp(root, 80)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := app.open("notes.html"); err != nil {
+		t.Fatal(err)
+	}
+	if app.winID() != "notes" {
+		t.Fatal(app.winID())
+	}
+}
+
+func TestCursorSitsOnNestedText(t *testing.T) {
+	style := model.Style{
+		Color: "#e6edf3", Background: "#161b22", BorderColor: "#30363d",
+		BorderWidth: 1, LineHeight: 1, Pad: [4]int{0, 1, 0, 1}, Mar: [4]int{1, 1, 1, 1},
+	}
+	header := model.Zone{Tag: "header", ID: "titre", Label: "Titre", Base: style, FocusOn: style}
+	area := model.Zone{Tag: "textarea", ID: "corps", Base: style, FocusOn: style}
+	inner := model.Grid{ID: "corps", Rows: []model.GridRow{{
+		ID: "edition", Lines: 2, Cells: []model.Cell{{Fr: 1, Zone: &area}},
+	}}}
+	win := model.Window{
+		ID: "main", File: "main.html",
+		Style: model.Style{
+			Color: "#e6edf3", Background: "#0d1117", LineHeight: 1, MaxWidth: 40,
+		},
+		Grid: model.Grid{Rows: []model.GridRow{
+			{ID: "entete", Lines: 1, Cells: []model.Cell{{Fr: 1, Zone: &header}}},
+			{ID: "page", Lines: 2, Cells: []model.Cell{{Fr: 1, Grid: &inner}}},
+		}},
+	}
+	a := &app{
+		root: t.TempDir(), wins: []model.Window{win}, origin: []model.Window{win}, width: 40,
+		sel: map[string]int{}, scroll: map[string]int{}, val: map[string]string{},
+		file: map[string]string{}, name: map[string]string{}, dirty: map[string]bool{},
+		resolved: map[string]string{}, focusAt: map[string]int{}, status: "Prêt",
+	}
+	a.val[key("main", "corps")] = "HELLO"
+	if err := a.layoutAll(); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.beginEdit("corps"); err != nil {
+		t.Fatal(err)
+	}
+	frame := a.frame()
+	lines := strings.Split(frame, "\n")
+	textLine := -1
+	for i, line := range lines {
+		if strings.Contains(visible(line), "HELLO") {
+			textLine = i
+		}
+	}
+	if textLine < 0 {
+		t.Fatal("HELLO absent")
+	}
+	x, y, ok := a.cursor()
+	if !ok || y != textLine {
+		t.Fatalf("curseur %d,%d ok=%v, texte ligne %d", x, y, ok, textLine)
+	}
+	plain := visible(lines[y])
+	at := strings.Index(plain, "HELLO")
+	col := lipgloss.Width(plain[:at])
+	end := col + lipgloss.Width("HELLO")
+	if x < col || x > end {
+		t.Fatalf("curseur colonne %d hors de %d-%d", x, col, end)
+	}
+}
+
 func TestSetWritesTempFile(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "vars.env")

@@ -183,6 +183,25 @@ func columnGaps(row model.GridRow) []int {
 	return gaps
 }
 
+// offsetBoxes moves every zone inside bands by dx, dy. Nested grids keep the same shift.
+func offsetBoxes(bands []Band, dx, dy int) {
+	if dx == 0 && dy == 0 {
+		return
+	}
+	for i := range bands {
+		for j := range bands[i].Cells {
+			cell := &bands[i].Cells[j]
+			if cell.Box != nil {
+				cell.Box.X += dx
+				cell.Box.Y += dy
+			}
+			if cell.Sub != nil {
+				offsetBoxes(cell.Sub.Bands, dx, dy)
+			}
+		}
+	}
+}
+
 func growSub(sub *Sub, delta int) {
 	if sub == nil || delta <= 0 {
 		return
@@ -331,6 +350,7 @@ func placeRow(row model.GridRow, width int, chrome model.Style, root bool, y int
 			for bi := range nb {
 				nb[bi].Y -= top
 			}
+			offsetBoxes(nb, 0, -top)
 			contentH := nh - top - bottom
 			ms[i].sub = &Sub{Bands: nb, Width: widths[i], Height: contentH}
 			ms[i].in = contentH
@@ -411,6 +431,9 @@ func placeRow(row model.GridRow, width int, chrome model.Style, root bool, y int
 			if ms[i].box.OuterH < rowH {
 				ms[i].box.OuterH = rowH
 			}
+		}
+		if ms[i].sub != nil {
+			offsetBoxes(ms[i].sub.Bands, x, y)
 		}
 		band.Cells = append(band.Cells, Slot{
 			Box: ms[i].box, Sub: ms[i].sub, Width: widths[i], Height: rowH, Gap: g,

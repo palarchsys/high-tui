@@ -104,6 +104,8 @@ La source est un tableau JSON, ou un objet JSON par ligne. Une commande s'écrit
 | `next` | Chemin, `cmd:…`, ou tableau de lignes |
 | `focus`, `enter` | Action facultative, qui remplace celle de la nav. Champs : `kind`, `target`, `file`, `name`, `href`, `run`, `output`, `value` |
 
+Un `href` dont le `kind` est `window` ouvre une fenêtre, résolu comme `data-enter-href` depuis le dossier `windows/`.
+
 Un fichier est lu tout de suite. Une commande lancée par le focus passe par l'anneau d'attente. Échap l'annule. Un résultat en retard est ignoré. `refresh` relit `data-items` et rejoue le `next` de la ligne focalisée. Une source absente, un JSON illisible ou un libellé manquant s'affiche dans le statut et laisse la nav cible vide.
 
 ```json

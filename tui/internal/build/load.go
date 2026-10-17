@@ -8,6 +8,7 @@ import (
 
 	"high-tui/internal/css"
 	"high-tui/internal/html"
+	"high-tui/internal/items"
 	"high-tui/internal/model"
 )
 
@@ -15,7 +16,8 @@ import (
 func Load(root string) ([]model.Window, error) {
 	var wins []model.Window
 	seen := map[string]bool{}
-	if err := loadFile(root, filepath.Join(root, "windows", "main.html"), &wins, seen); err != nil {
+	jsonSeen := map[string]bool{}
+	if err := loadFile(root, filepath.Join(root, "windows", "main.html"), &wins, seen, jsonSeen); err != nil {
 		return nil, err
 	}
 	if len(wins) == 0 {
@@ -24,7 +26,7 @@ func Load(root string) ([]model.Window, error) {
 	return wins, nil
 }
 
-func loadFile(root, path string, wins *[]model.Window, seen map[string]bool) error {
+func loadFile(root, path string, wins *[]model.Window, seen, jsonSeen map[string]bool) error {
 	path = filepath.Clean(path)
 	if seen[path] {
 		return nil
@@ -81,6 +83,11 @@ func loadFile(root, path string, wins *[]model.Window, seen map[string]bool) err
 			if err := exist(root, zone.ItemsFrom); err != nil {
 				return err
 			}
+			more, err := hrefsFromSource(root, zone.ItemsFrom, jsonSeen)
+			if err != nil {
+				return err
+			}
+			hrefs = append(hrefs, more...)
 		}
 		hrefs = append(hrefs, hrefsOf(zone.Focus)...)
 		hrefs = append(hrefs, hrefsOf(zone.Enter)...)
@@ -106,7 +113,7 @@ func loadFile(root, path string, wins *[]model.Window, seen map[string]bool) err
 		if !filepath.IsAbs(next) {
 			next = filepath.Join(dir, href)
 		}
-		if err := loadFile(root, next, wins, seen); err != nil {
+		if err := loadFile(root, next, wins, seen, jsonSeen); err != nil {
 			return err
 		}
 	}
@@ -118,6 +125,53 @@ func hrefsOf(act model.Action) []string {
 		return []string{act.Href}
 	}
 	return nil
+}
+
+// hrefsFromSource reads a JSON list and every file it names. A cmd: source is left for runtime.
+// Window hrefs stay relative to the HTML file that named the list, not to the JSON file.
+func hrefsFromSource(root, source string, seen map[string]bool) ([]string, error) {
+	if source == "" || strings.HasPrefix(source, "cmd:") {
+		return nil, nil
+	}
+	path := source
+	if !filepath.IsAbs(path) {
+		path = filepath.Join(root, source)
+	}
+	path = filepath.Clean(path)
+	if seen[path] {
+		return nil, nil
+	}
+	seen[path] = true
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return nil, model.Errf("fichier introuvable : %s", source)
+	}
+	list, err := items.Parse(string(raw), source)
+	if err != nil {
+		return nil, err
+	}
+	return hrefsFromItems(root, list, seen)
+}
+
+func hrefsFromItems(root string, list []model.Item, seen map[string]bool) ([]string, error) {
+	var hrefs []string
+	for _, item := range list {
+		hrefs = append(hrefs, hrefsOf(item.Focus)...)
+		hrefs = append(hrefs, hrefsOf(item.Enter)...)
+		if len(item.NextItems) > 0 {
+			more, err := hrefsFromItems(root, item.NextItems, seen)
+			if err != nil {
+				return nil, err
+			}
+			hrefs = append(hrefs, more...)
+		}
+		more, err := hrefsFromSource(root, item.Next, seen)
+		if err != nil {
+			return nil, err
+		}
+		hrefs = append(hrefs, more...)
+	}
+	return hrefs, nil
 }
 
 func exist(root, file string) error {
