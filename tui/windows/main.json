@@ -81,6 +81,24 @@
                 "name": "PORT",
                 "value": "8080"
               }
+            },
+            {
+              "id": "fiche-jeton",
+              "label": "samples/secrets.conf::HFU_PRO_JETON::label",
+              "value": "samples/secrets.conf::HFU_PRO_JETON::value",
+              "focus": {
+                "action": "load",
+                "target": "valeur-hote",
+                "file": "samples/passage.env",
+                "name": "HOTE"
+              },
+              "enter": {
+                "action": "set",
+                "target": "valeur-hote",
+                "file": "samples/passage.env",
+                "name": "HOTE",
+                "value": "samples/secrets.conf::HFU_PRO_JETON::value"
+              }
             }
           ]
         },

@@ -42,6 +42,8 @@ L'action est `load`, `edit`, `set`, `window`, `return`, `save`, `refresh` ou `ru
 
 Un élément de liste a `label` (ce qui est affiché) et, pour une écriture directe, `value`. L'action `set` écrit cette valeur dans la variable `name` du fichier `file` dès qu'on presse Entrée.
 
+Tout attribut `label` ou `value` égal à `chemin::NOM::label` ou `chemin::NOM::value` est résolu au lancement. Le chemin est absolu, ou relatif à la racine du produit. Le label est le texte de la ligne `# label NOM texte`. La value est le membre droit de `NOM=`. Un texte qui n'a pas cette forme n'est pas modifié. Une erreur arrête le lancement si le fichier, la variable ou le label manque, ou si le dernier mot n'est ni `label` ni `value`.
+
 ## Balises
 
 `window`, `header`, `nav`, `select`, `input`, `textarea`, `button`, `command`, `status`.

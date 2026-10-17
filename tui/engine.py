@@ -3,6 +3,7 @@
 
 import json
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -348,6 +349,41 @@ def class_list(raw, where):
     die(f"classe invalide ({where})")
 
 
+def resolve_ref(text, where):
+    if text.count("::") < 2:
+        return text
+    path_s, name, kind = text.rsplit("::", 2)
+    if not path_s or not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", name):
+        return text
+    if kind not in ("label", "value"):
+        die(f"le dernier mot n'est ni label ni value ({where})")
+    file_path = Path(path_s)
+    if not file_path.is_absolute():
+        file_path = ROOT / path_s
+    if not file_path.is_file():
+        die(f"fichier introuvable : {path_s}")
+    found_value = None
+    found_label = None
+    try:
+        raw = file_path.read_text(encoding="utf-8")
+    except OSError:
+        die(f"fichier introuvable : {path_s}")
+    for line in raw.splitlines():
+        matched = re.fullmatch(r"([A-Za-z_][A-Za-z0-9_]*)=(.*)", line)
+        if matched and matched.group(1) == name and found_value is None:
+            found_value = matched.group(2)
+        lab = re.fullmatch(rf"# label {re.escape(name)} (.*)", line)
+        if lab and found_label is None:
+            found_label = lab.group(1)
+    if kind == "value":
+        if found_value is None:
+            die(f"variable manquante ({where})")
+        return found_value
+    if found_label is None or found_label == "":
+        die(f"label manquant ({where})")
+    return found_label
+
+
 def parse_action(raw, where):
     if raw is None:
         return empty_action()
@@ -357,7 +393,7 @@ def parse_action(raw, where):
     act["action"] = action
     for key in ("target", "file", "name", "href", "run", "output", "value"):
         if key in raw and raw[key] is not None:
-            act[key] = str(raw[key])
+            act[key] = resolve_ref(str(raw[key]), where) if key == "value" else str(raw[key])
             if "\t" in act[key] or "\n" in act[key]:
                 die(f"valeur illégale « {key} » ({where})")
     if not action:
@@ -416,8 +452,8 @@ def parse_item(raw, ids, col_id):
     ids.add(iid)
     if "label" not in raw:
         die(f"label manquant ({iid})")
-    label = str(raw["label"])
-    value = str(raw.get("value", ""))
+    label = resolve_ref(str(raw["label"]), iid)
+    value = resolve_ref(str(raw.get("value", "")), iid)
     if label == "" or "\t" in label or "\n" in label:
         die(f"label illégal ({iid})")
     if "\t" in value or "\n" in value:
@@ -538,7 +574,7 @@ def parse_window(path, rules, windows, seen_paths):
                 "tag": tag,
                 "fr": fr,
                 "classes": class_list(col, col_id),
-                "label": str(col.get("label", "")),
+                "label": resolve_ref(str(col.get("label", "")), col_id),
                 "file": str(col.get("file", "")),
                 "name": str(col.get("name", "")),
                 "save": str(col.get("save", "")),
@@ -612,7 +648,7 @@ def parse_window(path, rules, windows, seen_paths):
     hrefs = check_targets(flat_columns)
     win = {
         "id": win_id,
-        "title": str(data.get("label", win_id)),
+        "title": resolve_ref(str(data["label"]), where) if "label" in data else win_id,
         "file": path.name,
         "style": win_style,
         "rows": rows_out,
@@ -804,6 +840,24 @@ def self_test(windows):
     assert fiches["items"][0]["value"] == "127.0.0.1"
     assert fiches["items"][0]["enter"]["action"] == "set"
     assert fiches["items"][0]["enter"]["name"] == "HOTE"
+    assert fiches["items"][1]["label"] == "Archive"
+    jeton = fiches["items"][2]
+    assert jeton["id"] == "fiche-jeton"
+    assert jeton["label"] == "Jeton pro"
+    assert jeton["value"] == "jeton-demo"
+    assert jeton["focus"]["action"] == "load"
+    assert jeton["focus"]["target"] == "valeur-hote"
+    assert jeton["focus"]["file"] == "samples/passage.env"
+    assert jeton["focus"]["name"] == "HOTE"
+    assert jeton["enter"]["action"] == "set"
+    assert jeton["enter"]["target"] == "valeur-hote"
+    assert jeton["enter"]["file"] == "samples/passage.env"
+    assert jeton["enter"]["name"] == "HOTE"
+    assert jeton["enter"]["value"] == "jeton-demo"
+    absolu = (ROOT / "samples" / "secrets.conf").resolve()
+    assert absolu.is_absolute() and absolu.is_file()
+    assert resolve_ref(f"{absolu}::HFU_PRO_JETON::label", "absolu") == "Jeton pro"
+    assert resolve_ref(f"{absolu}::HFU_PRO_JETON::value", "absolu") == "jeton-demo"
     apercu = main["rows"][2]["placed"][1]["col"]
     assert apercu["id"] == "apercu" and apercu["readonly"] is False
     back = [it for it in zone["col"]["items"] if it["label"] == "Retour"]
