@@ -44,6 +44,25 @@ func TestCtrlCCancels(t *testing.T) {
 	}
 }
 
+func TestBackspaceAndDelete(t *testing.T) {
+	ed, res := ApplyEdit(Edit{Text: "Aa\nBb", Cursor: 4}, "ctrl+h", true)
+	if res != EditNone || ed.Text != "Aa\nb" || ed.Cursor != 3 {
+		t.Fatalf("%q %d %v", ed.Text, ed.Cursor, res)
+	}
+	ed, res = ApplyEdit(Edit{Text: "Aa\nBb", Cursor: 4}, "backspace", true)
+	if res != EditNone || ed.Text != "Aa\nb" || ed.Cursor != 3 {
+		t.Fatalf("%q %d %v", ed.Text, ed.Cursor, res)
+	}
+	ed, res = ApplyEdit(Edit{Text: "Aa\nBb", Cursor: 4}, "delete", true)
+	if res != EditNone || ed.Text != "Aa\nB" || ed.Cursor != 4 {
+		t.Fatalf("%q %d %v", ed.Text, ed.Cursor, res)
+	}
+	ed, res = ApplyEdit(Edit{Text: "ab", Cursor: 0}, "backspace", true)
+	if res != EditNone || ed.Text != "ab" || ed.Cursor != 0 {
+		t.Fatalf("%q %d", ed.Text, ed.Cursor)
+	}
+}
+
 func TestAbsentKeyDoesNothing(t *testing.T) {
 	ed, res := ApplyEdit(Edit{Text: "ab", Cursor: 1}, "", true)
 	if res != EditNone || ed.Text != "ab" || ed.Cursor != 1 {

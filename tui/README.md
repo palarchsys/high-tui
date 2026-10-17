@@ -160,10 +160,12 @@ Dans le navigateur, les marges CSS s'additionnent. L'aperçu montre la structure
 | Ctrl+Q | Seule combinaison qui quitte. Une commande en cours est annulée d'abord |
 | Échap | Dans l'éditeur, annule et restaure le texte. Sinon, fenêtre précédente, ou « Déjà à la première fenêtre ». Pendant une commande, annule |
 | `q` | Ne quitte pas. Dans un éditeur, écrit la lettre |
+| Retour arrière | Dans l'éditeur, efface le caractère avant le curseur. Un terminal qui envoie Ctrl+H est reconnu. Hors édition, ignoré |
+| Suppr | Dans l'éditeur, efface le caractère sous le curseur |
 
 L'action de focus part au lancement, au changement de zone ou de ligne, et à l'ouverture ou au retour d'une fenêtre. Elle ne repart pas à chaque image.
 
-Entrée ouvre une zone éditable. Dans un `textarea`, Entrée insère ensuite un retour à la ligne. Maj+Entrée fait de même quand le terminal l'envoie. Ctrl+S écrit le fichier de la zone, affiche « Enregistré » et sort. Ctrl+C, comme Échap, abandonne le texte saisi, affiche « Annulé » et sort. Ctrl+C ne quitte jamais le programme. Pendant l'édition d'un `input` ou d'un `textarea`, le contour prend `--title-color`, la même couleur que les titres. Les flèches déplacent le curseur. Haut et Bas font défiler quand le curseur atteint le bord. Dans un `input`, Entrée et Ctrl+S enregistrent la valeur et sortent. Maj+Entrée n'y insère pas de ligne. Un collage conserve les retours à la ligne dans un `textarea` et les retire dans un `input`.
+Entrée ouvre une zone éditable. Dans un `textarea`, Entrée insère ensuite un retour à la ligne. Maj+Entrée fait de même quand le terminal l'envoie. Ctrl+S écrit le fichier de la zone, affiche « Enregistré » et sort. Ctrl+C, comme Échap, abandonne le texte saisi, affiche « Annulé » et sort. Ctrl+C ne quitte jamais le programme. Pendant l'édition d'un `input` ou d'un `textarea`, le contour prend `--title-color`, la même couleur que les titres. Les flèches déplacent le curseur. Le retour arrière efface le caractère avant le curseur et laisse le curseur sur la cellule du texte. Suppr efface le caractère sous le curseur. Haut et Bas font défiler quand le curseur atteint le bord. Dans un `input`, Entrée et Ctrl+S enregistrent la valeur et sortent. Maj+Entrée n'y insère pas de ligne. Un collage conserve les retours à la ligne dans un `textarea` et les retire dans un `input`.
 
 Le bouton Enregistrer écrit les zones encore marquées « Modifié ». `set` écrit tout de suite.
 
