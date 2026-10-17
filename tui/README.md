@@ -130,18 +130,18 @@ La hauteur extérieure d'une zone est `bordure + padding haut + lines + (lines �
 | --- | --- |
 | Gauche, Droite | Zone focalisable précédente ou suivante |
 | Haut, Bas | Dans une liste, change la ligne et lance son action de focus. Dans un champ qui déborde, défile, puis change de zone au bord |
-| Entrée | Action `enter` |
-| Échap | Fenêtre précédente, ou « Déjà à la première fenêtre ». Pendant une commande, annule |
-| Ctrl+Q, Ctrl+C | Quitte. Une commande en cours est annulée d'abord |
+| Entrée | Hors édition, action `enter`. Dans un `textarea`, retour à la ligne. Dans un `input`, enregistre et sort |
+| Ctrl+S | Dans l'éditeur, écrit le fichier de la zone et sort. Hors édition, ignoré |
+| Ctrl+C | Dans l'éditeur, annule et restaure le texte. Hors édition, quitte |
+| Ctrl+Q | Quitte. Une commande en cours est annulée d'abord |
+| Échap | Dans l'éditeur, annule et restaure le texte. Sinon, fenêtre précédente, ou « Déjà à la première fenêtre ». Pendant une commande, annule |
 | `q` | Ne quitte pas. Dans un éditeur, écrit la lettre |
 
 L'action de focus part au lancement, au changement de zone ou de ligne, et à l'ouverture ou au retour d'une fenêtre. Elle ne repart pas à chaque image.
 
-Dans un `textarea`, Maj+Entrée insère un retour à la ligne dès que le terminal envoie cette touche, y compris après les flèches ou Entrée. Entrée ferme l'édition et n'insère pas de retour à la ligne. Échap annule et restaure le texte. Les flèches déplacent le curseur. Haut et Bas font défiler quand le curseur atteint le bord. Dans un `input`, Maj+Entrée ne fait rien. Un collage conserve les retours à la ligne dans un `textarea` et les retire dans un `input`.
+Entrée ouvre une zone éditable. Dans un `textarea`, Entrée insère ensuite un retour à la ligne. Maj+Entrée fait de même quand le terminal l'envoie. Ctrl+S écrit le fichier de la zone, affiche « Enregistré » et sort. Ctrl+C, comme Échap, abandonne le texte saisi, affiche « Annulé » et sort. Les flèches déplacent le curseur. Haut et Bas font défiler quand le curseur atteint le bord. Dans un `input`, Entrée et Ctrl+S enregistrent la valeur et sortent. Maj+Entrée n'y insère pas de ligne. Un collage conserve les retours à la ligne dans un `textarea` et les retire dans un `input`.
 
-Si le terminal ne distingue pas Maj+Entrée, l'ouverture d'un `textarea` met le statut à « Ce terminal ne distingue pas Maj+Entrée ». Un vrai Maj+Entrée efface cet avertissement et insère le retour à la ligne. Entrée ferme quand même l'édition. Aucun retour à la ligne n'est inventé quand le terminal envoie une Entrée simple.
-
-`save="enter"` écrit à la fermeture de l'édition. `save="button"` marque la zone et affiche « Modifié » jusqu'au bouton d'enregistrement. `set` écrit tout de suite.
+Le bouton Enregistrer écrit les zones encore marquées « Modifié ». `set` écrit tout de suite.
 
 Une commande bloque les touches, affiche `⠋`, `⠙`, `⠹` ou `⠸` puis « En cours : » et le libellé. Échap annule. La sortie remplace le `textarea` nommé, même en lecture seule.
 

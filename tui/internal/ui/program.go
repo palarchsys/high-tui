@@ -87,6 +87,10 @@ func (m Model) View() tea.View {
 }
 
 func (a *app) onKey(msg tea.KeyPressMsg) tea.Cmd {
+	if a.edit != nil && cancelEditKey(msg) {
+		a.cancelEdit()
+		return nil
+	}
 	if quitKey(msg) {
 		if a.running {
 			a.stopRun()
@@ -100,6 +104,8 @@ func (a *app) onKey(msg tea.KeyPressMsg) tea.Cmd {
 		if a.status == noShiftMsg {
 			a.status = "Prêt"
 		}
+	} else if saveEditKey(msg) {
+		name = "ctrl+s"
 	} else if a.keyMode == keysUnknown {
 		a.keyMode = keysPlain
 	}
@@ -150,6 +156,22 @@ func quitKey(msg tea.KeyPressMsg) bool {
 		return false
 	}
 	return k.Code == 'c' || k.Code == 'C' || k.Code == 'q' || k.Code == 'Q'
+}
+
+func cancelEditKey(msg tea.KeyPressMsg) bool {
+	if msg.String() == "ctrl+c" || msg.String() == "\x03" || msg.Keystroke() == "ctrl+c" {
+		return true
+	}
+	k := msg.Key()
+	return k.Mod.Contains(tea.ModCtrl) && (k.Code == 'c' || k.Code == 'C')
+}
+
+func saveEditKey(msg tea.KeyPressMsg) bool {
+	if msg.String() == "ctrl+s" || msg.Keystroke() == "ctrl+s" {
+		return true
+	}
+	k := msg.Key()
+	return k.Mod.Contains(tea.ModCtrl) && (k.Code == 's' || k.Code == 'S')
 }
 
 func shiftEnter(msg tea.KeyPressMsg) bool {
