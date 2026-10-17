@@ -13,12 +13,17 @@ var known = map[string]bool{
 	"color": true, "background": true, "background-color": true,
 	"border": true, "border-width": true, "border-style": true, "border-color": true,
 	"border-radius": true, "padding": true, "margin": true, "max-width": true,
-	"column-gap": true, "line-height": true, "font-weight": true, "title-color": true,
+	"column-gap": true, "line-height": true, "font-weight": true, "--title-color": true,
+	"display": true, "width": true, "height": true, "box-sizing": true,
+	"table-layout": true, "border-collapse": true, "vertical-align": true,
+	"list-style": true, "font": true,
 }
 
 var tags = map[string]bool{
-	"window": true, "header": true, "main": true, "nav": true, "select": true,
-	"input": true, "textarea": true, "button": true, "command": true, "status": true,
+	"html": true, "body": true, "table": true, "tr": true, "td": true,
+	"h1": true, "h2": true, "ul": true, "li": true, "a": true,
+	"header": true, "nav": true, "input": true, "textarea": true,
+	"button": true, "footer": true,
 }
 
 // Rule is one selector plus its declarations, in source order.
@@ -231,8 +236,10 @@ func applyDecl(style *model.Style, name, val, where string) error {
 	switch name {
 	case "color":
 		style.Color = val
-	case "title-color":
+	case "--title-color":
 		style.TitleColor = val
+	case "display", "width", "height", "box-sizing", "table-layout", "border-collapse", "vertical-align", "list-style", "font":
+		return nil
 	case "background", "background-color":
 		style.Background = val
 	case "border-color":

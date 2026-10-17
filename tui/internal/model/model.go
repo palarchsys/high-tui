@@ -38,7 +38,7 @@ type Style struct {
 	Mar                                        [4]int
 }
 
-// Item is one row of a nav or a select.
+// Item is one row of a nav.
 type Item struct {
 	ID    string
 	Label string
@@ -47,7 +47,7 @@ type Item struct {
 	Enter Action
 }
 
-// Zone is one cell of a row.
+// Zone is the content painted in one cell. It fills that cell.
 type Zone struct {
 	Tag      string
 	ID       string
@@ -60,7 +60,6 @@ type Zone struct {
 	Href     string
 	Run      string
 	Output   string
-	Fr       int
 	Readonly bool
 	Focus    Action
 	Enter    Action
@@ -69,14 +68,49 @@ type Zone struct {
 	FocusOn  Style
 }
 
-// Row is a horizontal band. Lines is the text height inside every cell.
-type Row struct {
+// Cell is one slot of a grid row. It holds one zone or one nested grid.
+type Cell struct {
+	Fr   int
+	Grid *Grid
+	Zone *Zone
+}
+
+// GridRow is one horizontal band. Lines is the text height of its zones.
+type GridRow struct {
 	ID      string
-	Tag     string
 	Classes []string
 	Lines   int
-	Style   Style
-	Zones   []Zone
+	Cells   []Cell
+}
+
+// Grid is a table of cells. It is not a zone.
+type Grid struct {
+	ID      string
+	Classes []string
+	Rows    []GridRow
+}
+
+// Each visits every zone in document order.
+func (g *Grid) Each(fn func(*Zone)) {
+	if g == nil {
+		return
+	}
+	for i := range g.Rows {
+		for j := range g.Rows[i].Cells {
+			cell := &g.Rows[i].Cells[j]
+			if cell.Zone != nil {
+				fn(cell.Zone)
+			}
+			cell.Grid.Each(fn)
+		}
+	}
+}
+
+// Zones returns every zone in document order.
+func (g *Grid) Zones() []*Zone {
+	var out []*Zone
+	g.Each(func(zone *Zone) { out = append(out, zone) })
+	return out
 }
 
 // Window is one screen.
@@ -86,5 +120,5 @@ type Window struct {
 	File    string
 	Classes []string
 	Style   Style
-	Rows    []Row
+	Grid    Grid
 }

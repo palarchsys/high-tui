@@ -1,17 +1,32 @@
-<window id="notes" label="Notes">
-  <header id="entete-notes" lines="1">
-    <header id="titre-notes" label="Notes"></header>
-  </header>
-  <main id="liste-notes" lines="3">
-    <select id="nav-notes" label="Notes">
-      <item id="item-brouillon" label="Brouillon"
-            focus="load" focus-target="corps" focus-file="samples/brouillon.txt"></item>
-    </select>
-  </main>
-  <main id="page-notes" lines="4">
-    <textarea id="corps" file="samples/brouillon.txt" readonly="true"></textarea>
-  </main>
-  <status id="barre-notes" lines="1">
-    <status id="statut-notes"></status>
-  </status>
-</window>
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <title>Notes</title>
+  <link rel="stylesheet" href="notes.css">
+</head>
+<body>
+  <table id="notes">
+    <tr id="entete-notes" data-lines="1">
+      <td><header id="titre-notes"><h1>Notes</h1></header></td>
+    </tr>
+    <tr id="liste-notes" data-lines="3">
+      <td>
+        <nav id="nav-notes">
+          <h2>Notes</h2>
+          <ul>
+            <li id="item-brouillon" data-focus="load" data-focus-target="corps" data-focus-file="samples/brouillon.txt">Brouillon</li>
+            <li id="nav-notes-retour" data-enter="return"><a href="main.html">Retour</a></li>
+          </ul>
+        </nav>
+      </td>
+    </tr>
+    <tr id="page-notes" data-lines="4">
+      <td><textarea id="corps" readonly data-file="samples/brouillon.txt">Brouillon</textarea></td>
+    </tr>
+    <tr id="barre-notes" data-lines="1">
+      <td><footer id="statut-notes">Prêt</footer></td>
+    </tr>
+  </table>
+</body>
+</html>

@@ -2,8 +2,19 @@ package css
 
 import "testing"
 
+func TestPreviewProperty(t *testing.T) {
+	_, err := Parse("table { width: 100%; border-collapse: collapse; }", "main.css")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = Parse("nav { title-color: #ffa657; }", "main.css")
+	if err == nil || !contains(err.Error(), "propriété inconnue") {
+		t.Fatal(err)
+	}
+}
+
 func TestUnknownProperty(t *testing.T) {
-	_, err := Parse("window { foo: 1; }", "theme.css")
+	_, err := Parse("body { foo: 1; }", "theme.css")
 	if err == nil || !contains(err.Error(), "propriété inconnue") {
 		t.Fatal(err)
 	}
@@ -11,14 +22,14 @@ func TestUnknownProperty(t *testing.T) {
 
 func TestCascadeFocus(t *testing.T) {
 	rules, err := Parse(`
-window { color: #e6edf3; background: #0d1117; }
+body { color: #e6edf3; background: #0d1117; }
 nav { color: #e6edf3; background: #161b22; border: 1ch solid #30363d; }
 nav:focus { border-color: #58a6ff; font-weight: bold; }
 `, "main.css")
 	if err != nil {
 		t.Fatal(err)
 	}
-	inherit, err := Resolve(rules, "window", nil, "main", false, Blank())
+	inherit, err := Resolve(rules, "body", nil, "", false, Blank())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -40,14 +51,14 @@ nav:focus { border-color: #58a6ff; font-weight: bold; }
 
 func TestTitleColorStaysOnFocus(t *testing.T) {
 	rules, err := Parse(`
-window { color: #e6edf3; background: #0d1117; }
-nav, header, input { title-color: #ffa657; }
+body { color: #e6edf3; background: #0d1117; }
+nav, header, input { --title-color: #ffa657; }
 nav:focus { border-color: #58a6ff; font-weight: bold; }
 `, "main.css")
 	if err != nil {
 		t.Fatal(err)
 	}
-	inherit, err := Resolve(rules, "window", nil, "main", false, Blank())
+	inherit, err := Resolve(rules, "body", nil, "", false, Blank())
 	if err != nil {
 		t.Fatal(err)
 	}

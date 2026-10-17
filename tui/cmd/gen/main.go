@@ -53,27 +53,45 @@ func writeWindow(b *strings.Builder, win model.Window) {
 	writeStrings(b, "Classes", win.Classes, 3)
 	b.WriteString("\t\t\tStyle: ")
 	writeStyle(b, win.Style)
-	b.WriteString(",\n\t\t\tRows: []model.Row{\n")
-	for _, row := range win.Rows {
-		b.WriteString("\t\t\t\t{\n")
-		fmt.Fprintf(b, "\t\t\t\t\tID: %s, Tag: %s, Lines: %d,\n", q(row.ID), q(row.Tag), row.Lines)
-		writeStrings(b, "Classes", row.Classes, 5)
-		b.WriteString("\t\t\t\t\tStyle: ")
-		writeStyle(b, row.Style)
-		b.WriteString(",\n\t\t\t\t\tZones: []model.Zone{\n")
-		for _, zone := range row.Zones {
-			writeZone(b, zone)
+	b.WriteString(",\n\t\t\tGrid: ")
+	writeGrid(b, win.Grid, 3)
+	b.WriteString(",\n\t\t},\n")
+}
+
+func writeGrid(b *strings.Builder, grid model.Grid, indent int) {
+	pad := strings.Repeat("\t", indent)
+	b.WriteString("model.Grid{\n")
+	fmt.Fprintf(b, pad+"\tID: %s,\n", q(grid.ID))
+	writeStrings(b, "Classes", grid.Classes, indent+1)
+	b.WriteString(pad + "\tRows: []model.GridRow{\n")
+	for _, row := range grid.Rows {
+		b.WriteString(pad + "\t\t{\n")
+		fmt.Fprintf(b, pad+"\t\t\tID: %s, Lines: %d,\n", q(row.ID), row.Lines)
+		writeStrings(b, "Classes", row.Classes, indent+3)
+		b.WriteString(pad + "\t\t\tCells: []model.Cell{\n")
+		for _, cell := range row.Cells {
+			b.WriteString(pad + "\t\t\t\t{\n")
+			fmt.Fprintf(b, pad+"\t\t\t\t\tFr: %d,\n", cell.Fr)
+			if cell.Zone != nil {
+				b.WriteString(pad + "\t\t\t\t\tZone: &")
+				writeZone(b, *cell.Zone)
+			}
+			if cell.Grid != nil {
+				b.WriteString(pad + "\t\t\t\t\tGrid: &")
+				writeGrid(b, *cell.Grid, indent+5)
+			}
+			b.WriteString(",\n" + pad + "\t\t\t\t},\n")
 		}
-		b.WriteString("\t\t\t\t\t},\n\t\t\t\t},\n")
+		b.WriteString(pad + "\t\t\t},\n" + pad + "\t\t},\n")
 	}
-	b.WriteString("\t\t\t},\n\t\t},\n")
+	b.WriteString(pad + "\t},\n" + pad + "}")
 }
 
 func writeZone(b *strings.Builder, zone model.Zone) {
-	b.WriteString("\t\t\t\t\t\t{\n")
+	b.WriteString("model.Zone{\n")
 	fmt.Fprintf(b, "\t\t\t\t\t\t\tTag: %s, ID: %s, Label: %s, Value: %s,\n", q(zone.Tag), q(zone.ID), q(zone.Label), q(zone.Value))
 	fmt.Fprintf(b, "\t\t\t\t\t\t\tFile: %s, Name: %s, Save: %s, Href: %s, Run: %s, Output: %s,\n", q(zone.File), q(zone.Name), q(zone.Save), q(zone.Href), q(zone.Run), q(zone.Output))
-	fmt.Fprintf(b, "\t\t\t\t\t\t\tFr: %d, Readonly: %t,\n", zone.Fr, zone.Readonly)
+	fmt.Fprintf(b, "\t\t\t\t\t\t\tReadonly: %t,\n", zone.Readonly)
 	writeStrings(b, "Classes", zone.Classes, 7)
 	b.WriteString("\t\t\t\t\t\t\tFocus: ")
 	writeAction(b, zone.Focus)
@@ -96,7 +114,7 @@ func writeZone(b *strings.Builder, zone model.Zone) {
 		}
 		b.WriteString("\t\t\t\t\t\t\t},\n")
 	}
-	b.WriteString("\t\t\t\t\t\t},\n")
+	b.WriteString("\t\t\t\t\t\t}")
 }
 
 func writeAction(b *strings.Builder, act model.Action) {

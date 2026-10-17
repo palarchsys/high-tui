@@ -16,10 +16,14 @@ func paint(view viewState) string {
 	bg := lipgloss.NewStyle().
 		Foreground(lipgloss.Color(win.Window.Style.Color)).
 		Background(lipgloss.Color(win.Window.Style.Background))
-	blank := fill(bg, win.Width, 1)
+	return paintBands(view, win.Bands, win.Width, win.Height, bg)
+}
+
+func paintBands(view viewState, bands []layout.Band, width, height int, bg lipgloss.Style) string {
+	blank := fill(bg, width, 1)
 	var lines []string
 	y := 0
-	for _, band := range win.Bands {
+	for _, band := range bands {
 		for y < band.Y {
 			lines = append(lines, blank)
 			y++
@@ -28,10 +32,15 @@ func paint(view viewState) string {
 		if band.InsetL > 0 {
 			cells = append(cells, fill(bg, band.InsetL, band.Height))
 		}
-		for _, box := range band.Boxes {
-			cells = append(cells, paintBox(view, box))
-			if box.Gap > 0 {
-				cells = append(cells, fill(bg, box.Gap, band.Height))
+		for _, slot := range band.Cells {
+			switch {
+			case slot.Box != nil:
+				cells = append(cells, paintBox(view, *slot.Box))
+			case slot.Sub != nil:
+				cells = append(cells, paintBands(view, slot.Sub.Bands, slot.Sub.Width, slot.Sub.Height, bg))
+			}
+			if slot.Gap > 0 {
+				cells = append(cells, fill(bg, slot.Gap, band.Height))
 			}
 		}
 		if band.InsetR > 0 {
@@ -43,7 +52,7 @@ func paint(view viewState) string {
 		}
 		y += band.Height
 	}
-	for y < win.Height {
+	for y < height {
 		lines = append(lines, blank)
 		y++
 	}
@@ -74,7 +83,7 @@ func paintBox(view viewState, box layout.Box) string {
 	}
 	body := logical(view, box)
 	scroll := 0
-	if zone.Tag == "nav" || zone.Tag == "select" {
+	if zone.Tag == "nav" {
 		width := box.TextW
 		rows := text.Wrap(body, width)
 		if len(rows) > box.Lines && box.TextW >= 2 {
@@ -101,8 +110,8 @@ func paintBox(view viewState, box layout.Box) string {
 	if title == "" {
 		title = style.Color
 	}
-	lines := make([]string, len(page))
-	for i, row := range page {
+	lines := make([]string, 0, len(page))
+	for _, row := range page {
 		fg := style.Color
 		if titleZone(zone.Tag) && row.From == 0 {
 			fg = title
@@ -114,7 +123,18 @@ func paintBox(view viewState, box layout.Box) string {
 		if style.Bold {
 			line = line.Bold(true)
 		}
-		lines[i] = line.Render(row.Text)
+		lines = append(lines, line.Render(row.Text))
+	}
+	inner := box.OuterH - style.BorderWidth*2 - style.Pad[0] - style.Pad[2]
+	if inner < 1 {
+		inner = 1
+	}
+	blank := lipgloss.NewStyle().
+		Background(lipgloss.Color(style.Background)).
+		Inline(true).
+		Render(strings.Repeat(" ", box.TextW))
+	for len(lines) < inner {
+		lines = append(lines, blank)
 	}
 	s := lipgloss.NewStyle().
 		Background(lipgloss.Color(style.Background)).
@@ -142,7 +162,7 @@ func paintBox(view viewState, box layout.Box) string {
 
 func titleZone(tag string) bool {
 	switch tag {
-	case "header", "nav", "select", "input":
+	case "header", "nav", "input":
 		return true
 	default:
 		return false
@@ -152,9 +172,9 @@ func titleZone(tag string) bool {
 func logical(view viewState, box layout.Box) string {
 	zone := box.Zone
 	switch zone.Tag {
-	case "header", "button", "command":
+	case "header", "button":
 		return shown(view, zone.Label)
-	case "status":
+	case "footer":
 		return view.status
 	case "input":
 		name := view.name[key(view.winID, zone.ID)]
@@ -164,7 +184,7 @@ func logical(view viewState, box layout.Box) string {
 		return name + "\n" + view.val[key(view.winID, zone.ID)]
 	case "textarea":
 		return view.val[key(view.winID, zone.ID)]
-	case "nav", "select":
+	case "nav":
 		var b strings.Builder
 		b.WriteString(shown(view, zone.Label))
 		b.WriteByte('\n')

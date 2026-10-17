@@ -101,7 +101,7 @@ func TestCtrlSAndCtrlC(t *testing.T) {
 
 func TestEditBorderUsesTitleColor(t *testing.T) {
 	a := editApp(t)
-	zone := &a.placed[0].Bands[0].Boxes[0].Zone
+	zone := &a.placed[0].Bands[0].Cells[0].Box.Zone
 	zone.Base.TitleColor = "#ffa657"
 	zone.Base.BorderColor = "#30363d"
 	zone.FocusOn.TitleColor = "#ffa657"
@@ -281,7 +281,7 @@ func editApp(t *testing.T) *app {
 		BorderWidth: 1, LineHeight: 1, Pad: [4]int{0, 1, 0, 1},
 	}
 	zone := model.Zone{
-		Tag: "textarea", ID: "corps", Fr: 1, Readonly: false,
+		Tag: "textarea", ID: "corps", Readonly: false,
 		Base: style, FocusOn: style,
 		Enter: model.Action{Kind: "edit", Target: "corps"},
 	}
@@ -291,9 +291,9 @@ func editApp(t *testing.T) *app {
 			Color: "#e6edf3", Background: "#0d1117", BorderColor: "#e6edf3",
 			LineHeight: 1, MaxWidth: 80,
 		},
-		Rows: []model.Row{{
-			ID: "page", Tag: "main", Lines: 4, Zones: []model.Zone{zone},
-		}},
+		Grid: model.Grid{ID: "main", Rows: []model.GridRow{{
+			ID: "page", Lines: 4, Cells: []model.Cell{{Fr: 1, Zone: &zone}},
+		}}},
 	}
 	a := &app{
 		root: t.TempDir(), wins: []model.Window{win}, origin: []model.Window{win}, width: 40,

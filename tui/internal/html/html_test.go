@@ -1,25 +1,44 @@
 package html
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
+
+func doc(body string) string {
+	return `<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>W</title>
+<link rel="stylesheet" href="t.css">
+</head>
+<body>
+` + body + `
+</body>
+</html>`
+}
 
 func TestAbsentActionDoesNothing(t *testing.T) {
-	doc, err := Parse(`<window id="w" label="W">
-	  <main id="r" lines="1">
-	    <button id="b" label="Enregistrer" enter="save"></button>
-	  </main>
-	</window>`, "t.html")
+	raw := doc(`<table id="w">
+<tr id="r" data-lines="1">
+<td><button id="b" type="button" data-enter="save">Enregistrer</button></td>
+</tr>
+</table>`)
+	tree, err := Parse(raw, "t.html")
 	if err != nil {
 		t.Fatal(err)
 	}
-	win, err := Window(doc, "t.html")
+	win, err := Window(tree, "t.html")
 	if err != nil {
 		t.Fatal(err)
 	}
-	zone := win.Rows[0].Zones[0]
+	cell := win.Grid.Rows[0].Cells[0]
+	zone := cell.Zone
 	if zone.Focus.Kind != "" {
 		t.Fatalf("focus déclenché : %q", zone.Focus.Kind)
 	}
-	if zone.Fr != 1 || zone.Readonly || zone.File != "" || zone.Value != "" {
+	if cell.Fr != 1 || zone.Readonly || zone.File != "" || zone.Value != "" {
 		t.Fatalf("défauts %#v", zone)
 	}
 	if zone.Enter.Kind != "save" {
@@ -28,19 +47,61 @@ func TestAbsentActionDoesNothing(t *testing.T) {
 }
 
 func TestEmptyAttribute(t *testing.T) {
-	_, err := Parse(`<window id="w"><main id="r"><button id="b" label="" enter="save"></button></main></window>`, "t.html")
-	if err == nil || !stringsContains(err.Error(), "attribut vide") {
+	raw := doc(`<table id="w"><tr id="r"><td><button id="b" type="button" data-enter="">Enregistrer</button></td></tr></table>`)
+	_, err := Parse(raw, "t.html")
+	if err == nil || !strings.Contains(err.Error(), "attribut vide") {
 		t.Fatal(err)
 	}
 }
 
-func stringsContains(s, part string) bool {
-	return len(s) >= len(part) && (func() bool {
-		for i := 0; i+len(part) <= len(s); i++ {
-			if s[i:i+len(part)] == part {
-				return true
-			}
-		}
-		return false
-	})()
+func TestReadonlyFalseRefused(t *testing.T) {
+	raw := doc(`<table id="w"><tr><td><textarea id="c" readonly="false"></textarea></td></tr></table>`)
+	tree, err := Parse(raw, "t.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = Window(tree, "t.html")
+	if err == nil || !strings.Contains(err.Error(), "readonly invalide") {
+		t.Fatal(err)
+	}
+}
+
+func TestNestedTable(t *testing.T) {
+	raw := doc(`<table id="w">
+<tr>
+<td>
+<table id="dedans">
+<tr data-lines="2"><td><textarea id="corps">placeholder</textarea></td></tr>
+</table>
+</td>
+</tr>
+</table>`)
+	tree, err := Parse(raw, "t.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	win, err := Window(tree, "t.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cell := win.Grid.Rows[0].Cells[0]
+	if cell.Zone != nil || cell.Grid == nil || cell.Grid.ID != "dedans" {
+		t.Fatal("grille imbriquée absente")
+	}
+	zone := cell.Grid.Rows[0].Cells[0].Zone
+	if zone == nil || zone.ID != "corps" || zone.Value != "placeholder" || zone.File != "" {
+		t.Fatalf("%#v", zone)
+	}
+}
+
+func TestRowTagRefused(t *testing.T) {
+	raw := doc(`<table id="w"><row id="r"></row></table>`)
+	tree, err := Parse(raw, "t.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = Window(tree, "t.html")
+	if err == nil || !strings.Contains(err.Error(), "balise inconnue") {
+		t.Fatal(err)
+	}
 }
